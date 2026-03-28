@@ -25,12 +25,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Step 2: Ensure Python and essential utilities are installed
-      - name: Ensure Python & Tools are available
-        run: sudo apt-get update -y && sudo apt-get install -y \
-          python3 python3-pip python3-venv jq curl unzip xz-utils lzip git
+      # Step 2: Ensure essential utilities are installed
+      - name: Ensure essential tools are available
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq curl unzip xz-utils lzip git
 
-      # Step 3: Setup Unix-native build environment
+      # Step 3: Verify Python availability
+      - name: Check Python version
+        run: |
+          python3 --version
+          pip3 --version
+
+      # Step 4: Setup Unix-native build environment
       - name: Setup Unix Build Environment
         run: |
           set -e
@@ -38,32 +45,32 @@ jobs:
           chmod +x ./scripts/utils/setup-native-unix.sh
           ./scripts/utils/setup-native-unix.sh 2>&1 | tee /tmp/setup-native-unix.log
 
-      # Step 4: Generate per-package build.sh files using Python
+      # Step 5: Generate per-package build.sh files using Python
       - name: Generate build.sh files
         run: |
-          chmod +x ./scripts/utils/setup-build-sh.py
-          python3 ./scripts/utils/setup-build-sh.py 2>&1 | tee /tmp/setup-build-sh.log
+          chmod +x ./scripts/utils/Unix_packages.sh
+          python3 ./scripts/utils/Unix_packages.sh 2>&1 | tee /tmp/Unix_packages.sh.log
 
-      # Step 5: Build only root-packages for the target architecture
+      # Step 6: Build only root-packages for the target architecture
       - name: Build root-packages for ${{ matrix.arch }}
         run: |
           chmod +x ./build.sh
           ./build.sh $(ls root-packages) 2>&1 | tee /tmp/unix-build-${{ matrix.arch }}.log
 
-      # Step 6: Archive built .deb files (optional: future packaging)
+      # Step 7: Archive built .deb files (optional: future packaging)
       - name: Archive built .deb files
         run: |
           mkdir -p artifacts
           find output -type f -name '*.deb' -exec mv {} artifacts/ \; || true
 
-      # Step 7: Upload built package artifacts
+      # Step 8: Upload built package artifacts
       - name: Upload built packages
         uses: actions/upload-artifact@v7
         with:
           name: unix-root-debs-${{ matrix.arch }}
           path: artifacts/
 
-      # Step 8: Upload setup/build logs for debugging
+      # Step 9: Upload setup/build logs for debugging
       - name: Upload setup/build logs
         if: failure() || always()
         uses: actions/upload-artifact@v7
@@ -71,5 +78,5 @@ jobs:
           name: unix-build-logs-${{ matrix.arch }}
           path: |
             /tmp/setup-native-unix.log
-            /tmp/setup-build-sh.log
+            /tmp/Unix_packages.sh.log
             /tmp/unix-build-${{ matrix.arch }}.log
