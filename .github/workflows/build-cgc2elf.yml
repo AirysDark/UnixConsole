@@ -26,26 +26,22 @@ jobs:
           sudo apt update
           sudo apt install -y build-essential libelf-dev git pandoc python3
 
-      # 3️⃣ Prepare clean build directory
+      # 3️⃣ Prepare build directory
       - name: Create build directory
-        run: |
-          rm -rf $GITHUB_WORKSPACE/build_cgc2elf
-          mkdir -p $GITHUB_WORKSPACE/build_cgc2elf
+        run: mkdir -p $GITHUB_WORKSPACE/build_cgc2elf
 
       # 4️⃣ Clone cgc2elf source
       - name: Clone cgc2elf
-        run: |
-          git clone https://github.com/CyberGrandChallenge/cgc2elf.git \
-            $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
+        run: git clone https://github.com/CyberGrandChallenge/cgc2elf.git $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
 
-      # 5️⃣ Clean previous build and compile binary
-      - name: Build cgc2elf
+      # 5️⃣ Build cgc2elf binary (ignore unused-result warnings)
+      - name: Build cgc2elf binary
         run: |
           cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
-          make clean || true
+          make clean
           make CFLAGS="-O2 -w -Wno-unused-result"
 
-      # 6️⃣ Generate man page
+      # 6️⃣ Build man page if pandoc is available
       - name: Build cgc2elf man page
         run: |
           cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
@@ -70,6 +66,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-man
-          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf.1.gz
+          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf.1.gz
+          if-no-files-found: warn
+          compression-level: 6
+
+      # 9️⃣ Optional: Upload Node modules for debugging or tooling
+      - name: Upload Node modules
+        uses: actions/upload-artifact@v4
+        with:
+          name: cgc2elf-node-modules
+          path: $GITHUB_WORKSPACE/build_cgc2elf/build/node_module_punycode
           if-no-files-found: warn
           compression-level: 6
