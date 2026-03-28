@@ -29,6 +29,8 @@ jobs:
             libc++abi-dev \
             python3-pip \
             tree \
+            ninja-build \
+            cmake
             
 
           pip3 install \
