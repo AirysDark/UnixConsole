@@ -5,17 +5,15 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:   # 👈 allows manual execution
 
 jobs:
   build-cgc2elf:
     runs-on: ubuntu-24.04
-
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-      # 1️⃣ Checkout the repo
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
@@ -24,8 +22,8 @@ jobs:
       # 2️⃣ Install required dependencies
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential git gcc pandoc
+          sudo apt update
+          sudo apt install -y build-essential libelf-dev git pandoc python3
 
       # 3️⃣ Prepare build directory
       - name: Create build directory
@@ -35,13 +33,19 @@ jobs:
       - name: Clone cgc2elf
         run: git clone https://github.com/CyberGrandChallenge/cgc2elf.git $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
 
-      # 5️⃣ Build cgc2elf binary
+      # 5️⃣ Clean previous build
+      - name: Clean previous build
+        run: |
+          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
+          make clean || true
+
+      # 6️⃣ Build cgc2elf binary
       - name: Build cgc2elf
         run: |
           cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
-          make CFLAGS="-O2 -w"
+          make CFLAGS="-O2 -w -Wno-unused-result"
 
-      # 6️⃣ Generate man page
+      # 7️⃣ Build man page
       - name: Build cgc2elf man page
         run: |
           cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
@@ -52,7 +56,7 @@ jobs:
             echo "⚠️ pandoc not installed, skipping man page"
           fi
 
-      # 7️⃣ Upload binary artifact
+      # 8️⃣ Upload binary artifact
       - name: Upload cgc2elf binary
         uses: actions/upload-artifact@v4
         with:
@@ -61,7 +65,7 @@ jobs:
           if-no-files-found: warn
           compression-level: 6
 
-      # 8️⃣ Upload man page artifact
+      # 9️⃣ Upload man page artifact
       - name: Upload cgc2elf man page
         uses: actions/upload-artifact@v4
         with:
