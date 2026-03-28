@@ -1,4 +1,4 @@
-name: Build Termux Root Packages Natively
+name: Build Unix Root Packages Natively
 
 on:
   workflow_dispatch:
@@ -25,41 +25,42 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Step 2: Ensure Python is installed
-      - name: Ensure Python is available
-        run: sudo apt-get update -y && sudo apt-get install -y python3 python3-pip python3-venv
+      # Step 2: Ensure Python and essential utilities are installed
+      - name: Ensure Python & Tools are available
+        run: sudo apt-get update -y && sudo apt-get install -y \
+          python3 python3-pip python3-venv jq curl unzip xz-utils lzip git
 
-      # Step 3: Setup Termux build environment
-      - name: Setup Termux Build Environment
+      # Step 3: Setup Unix-native build environment
+      - name: Setup Unix Build Environment
         run: |
           set -e
           set -o pipefail
-          chmod +x ./scripts/setup-native-termux.sh
-          ./scripts/setup-native-termux.sh 2>&1 | tee /tmp/setup-native-termux.log
+          chmod +x ./scripts/utils/setup-native-unix.sh
+          ./scripts/utils/setup-native-unix.sh 2>&1 | tee /tmp/setup-native-unix.log
 
-      # Step 4: Generate build.sh files
+      # Step 4: Generate per-package build.sh files using Python
       - name: Generate build.sh files
         run: |
-          chmod +x ./scripts/setup-build-sh.sh
-          ./scripts/setup-build-sh.sh 2>&1 | tee /tmp/setup-build-sh-build-sh.log
+          chmod +x ./scripts/utils/Unix_packages.sh
+          python3 ./scripts/utils/Unix_packages.sh 2>&1 | tee /tmp/Unix_packages.sh.log
 
-      # Step 5: Build only root-packages
+      # Step 5: Build only root-packages for the target architecture
       - name: Build root-packages for ${{ matrix.arch }}
         run: |
-          chmod +x ./scripts/bin/update-packages
-          ./scripts/bin/update-packages "root-packages" 2>&1 | tee /tmp/termux-build-${{ matrix.arch }}.log
+          chmod +x ./build.sh
+          ./build.sh $(ls root-packages) 2>&1 | tee /tmp/unix-build-${{ matrix.arch }}.log
 
-      # Step 6: Archive built .deb files
+      # Step 6: Archive built .deb files (optional: future packaging)
       - name: Archive built .deb files
         run: |
           mkdir -p artifacts
           find output -type f -name '*.deb' -exec mv {} artifacts/ \; || true
 
-      # Step 7: Upload built root-package artifacts
+      # Step 7: Upload built package artifacts
       - name: Upload built packages
         uses: actions/upload-artifact@v7
         with:
-          name: termux-root-debs-${{ matrix.arch }}
+          name: unix-root-debs-${{ matrix.arch }}
           path: artifacts/
 
       # Step 8: Upload setup/build logs for debugging
@@ -67,8 +68,8 @@ jobs:
         if: failure() || always()
         uses: actions/upload-artifact@v7
         with:
-          name: termux-build-logs-${{ matrix.arch }}
+          name: unix-build-logs-${{ matrix.arch }}
           path: |
-            /tmp/setup-native-termux.log
-            /tmp/setup-build-sh-build-sh.log
-            /tmp/termux-build-${{ matrix.arch }}.log
+            /tmp/setup-native-unix.log
+            /tmp/setup-build-sh.log
+            /tmp/unix-build-${{ matrix.arch }}.log
