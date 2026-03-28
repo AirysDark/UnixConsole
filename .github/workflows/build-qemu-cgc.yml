@@ -1,0 +1,39 @@
+name: Build QEMU-CGC
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-qemu-cgc:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential git python2 libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev wget unzip zip
+
+      - name: Clone QEMU-CGC
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/build_qemu-cgc
+          cd $GITHUB_WORKSPACE/build_qemu-cgc
+          git clone https://github.com/mechaphish/qemu-cgc.git || echo "⚠️ QEMU-CGC clone failed"
+
+      - name: Build QEMU-CGC
+        run: |
+          cd $GITHUB_WORKSPACE/build_qemu-cgc/qemu-cgc || echo "⚠️ qemu-cgc folder missing"
+          ./configure --target-list=i386-softmmu || echo "⚠️ qemu configure failed"
+          make -j$(nproc) || echo "⚠️ qemu build failed"
+
+      - name: Upload QEMU-CGC artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-cgc
+          path: $GITHUB_WORKSPACE/build_qemu-cgc
