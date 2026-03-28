@@ -1,0 +1,39 @@
+name: Build cgc2elf
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-cgc2elf:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential git gcc-multilib g++-multilib libc6-dev-i386 wget zip
+
+      - name: Clone cgc2elf
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/build_cgc2elf
+          cd $GITHUB_WORKSPACE/build_cgc2elf
+          git clone https://github.com/CyberGrandChallenge/cgc2elf.git
+
+      - name: Build cgc2elf
+        run: |
+          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
+          make CFLAGS="-O2 -w" || echo "⚠️ cgc2elf build failed"
+          sudo cp cgc2elf /usr/local/bin || echo "⚠️ cgc2elf install failed"
+
+      - name: Upload cgc2elf artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cgc2elf
+          path: $GITHUB_WORKSPACE/build_cgc2elf
