@@ -1,5 +1,4 @@
-# .github/workflows/build-cgc2elf.yml
-name: Build cgc2elf
+name: build-cgc2elf
 
 on:
   push:
@@ -8,49 +7,48 @@ on:
     branches: [ main ]
 
 jobs:
-  build-cgc2elf:
+  build:
     runs-on: ubuntu-24.04
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # opt into Node.js 24
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
+      # 1️⃣ Checkout the repo
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
+      # 2️⃣ Install required packages
       - name: Install build dependencies
         run: |
           sudo apt update
-          sudo apt install -y \
-            build-essential \
-            git \
-            gcc-multilib \
-            g++-multilib \
-            libc6-dev-i386 \
-            wget \
-            zip \
-            pandoc \
-            gzip
+          sudo apt install -y build-essential git gcc wget zip pandoc
 
-      - name: Create build folder
+      # 3️⃣ Prepare build directory
+      - name: Prepare build folder
         run: |
           mkdir -p $GITHUB_WORKSPACE/build_cgc2elf
           cd $GITHUB_WORKSPACE/build_cgc2elf
           git clone https://github.com/CyberGrandChallenge/cgc2elf.git
 
+      # 4️⃣ Build cgc2elf
       - name: Build cgc2elf
         run: |
           cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
-          # Build without warnings stopping compilation
-          make CFLAGS="-O2 -w" || echo "⚠️ cgc2elf build failed"
-          # Install to /usr/local/bin
-          sudo cp cgc2elf /usr/local/bin || echo "⚠️ cgc2elf install failed"
+          # Compile binary
+          make CFLAGS="-O2 -w"
+          # Generate man page and compress
+          pandoc -s -t man cgc2elf.md -o cgc2elf.md.tmp
+          gzip -9 < cgc2elf.md.tmp > cgc2elf.1.gz
 
+      # 5️⃣ Upload artifacts
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf
-          path: $GITHUB_WORKSPACE/build_cgc2elf
+          path: |
+            $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf
+            $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf.1.gz
           if-no-files-found: warn
           compression-level: 6
