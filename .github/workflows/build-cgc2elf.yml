@@ -51,25 +51,27 @@ jobs:
             echo "⚠️ pandoc not installed, skipping man page"
           fi
 
-      # 7️⃣ Upload binary artifact (only if exists)
+# 7️⃣ Upload binary artifact (only if exists)
       - name: Upload cgc2elf binary
-        if: ${{ exists(format('{0}/build_cgc2elf/cgc2elf/cgc2elf', github.workspace)) }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: cgc2elf-binary
-          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf
-          if-no-files-found: warn
-          compression-level: 6
+        run: |
+          FILE="$GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf"
+          if [ -f "$FILE" ]; then
+            echo "Uploading binary..."
+            gh actions upload-artifact --name cgc2elf-binary --path "$FILE"
+          else
+            echo "⚠️ Binary not found, skipping upload"
+          fi
 
       # 8️⃣ Upload man page artifact (only if exists)
       - name: Upload cgc2elf man page
-        if: ${{ exists(format('{0}/build_cgc2elf/cgc2elf/cgc2elf.1.gz', github.workspace)) }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: cgc2elf-man
-          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf.1.gz
-          if-no-files-found: warn
-          compression-level: 6
+        run: |
+          FILE="$GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf.1.gz"
+          if [ -f "$FILE" ]; then
+            echo "Uploading man page..."
+            gh actions upload-artifact --name cgc2elf-man --path "$FILE"
+          else
+            echo "⚠️ Man page not found, skipping upload"
+          fi
 
       # 9️⃣ Optional: Debug — list build folder contents
       - name: List build folder
