@@ -12,46 +12,38 @@ jobs:
     strategy:
       matrix:
         repo: [cgc-linux-dev, libcgc, cgc2elf, qemu-cgc]
-    continue-on-error: true  # <-- allow individual matrix jobs to fail without stopping others
+    continue-on-error: true
     defaults:
       run:
         shell: bash
     steps:
-      # -----------------------------
       # 1. Checkout repository
-      # -----------------------------
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # -----------------------------
       # 2. Install dependencies
-      # -----------------------------
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y git unzip curl build-essential wget zip software-properties-common
-          # Install GCC 9 for DECREE kernel
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt update
           sudo apt install -y gcc-9 g++-9
 
-      # -----------------------------
       # 3. Create working folder for this job
-      # -----------------------------
       - name: Create working folder
         run: mkdir -p $GITHUB_WORKSPACE/build_${{ matrix.repo }}
 
-      # -----------------------------
       # 4. Clone the repository
-      # -----------------------------
       - name: Fetch repository
         run: |
           cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
           case "${{ matrix.repo }}" in
             cgc-linux-dev)
               git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git
+              mv linux-source-3.13.2-cgc cgc-linux-dev
               ;;
             libcgc)
               git clone https://github.com/CyberGrandChallenge/libcgc.git
@@ -64,9 +56,7 @@ jobs:
               ;;
           esac
 
-      # -----------------------------
       # 5. Build steps per repo
-      # -----------------------------
       - name: Build repository
         run: |
           cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
@@ -97,9 +87,7 @@ jobs:
               ;;
           esac
 
-      # -----------------------------
       # 6. Upload built folder as artifact
-      # -----------------------------
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -110,31 +98,23 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-repo
     steps:
-      # -----------------------------
-      # 1. Download all artifacts from matrix jobs
-      # -----------------------------
+      # 1. Download all artifacts
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: $GITHUB_WORKSPACE/cgc_env
 
-      # -----------------------------
-      # 2. Verify directories
-      # -----------------------------
+      # 2. List combined directories
       - name: List combined directories
         run: ls -l $GITHUB_WORKSPACE/cgc_env
 
-      # -----------------------------
       # 3. Zip the combined cgc_env
-      # -----------------------------
       - name: Zip CGC environment
         run: |
           cd $GITHUB_WORKSPACE
           zip -r CGPT.zip cgc_env
 
-      # -----------------------------
       # 4. Upload the final zip
-      # -----------------------------
       - name: Upload CGPT.zip
         uses: actions/upload-artifact@v4
         with:
