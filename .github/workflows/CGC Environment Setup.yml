@@ -1,122 +1,135 @@
-name: CGC Environment Setup (Matrix Build)
+name: Build CGC/DECREE Environment
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-repo:
+  build-components:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        repo: [cgc-linux-dev, libcgc, cgc2elf, qemu-cgc]
-    defaults:
-      run:
-        shell: bash
+        component: [kernel, libcgc, cgc2elf, qemu-cgc]
+    continue-on-error: true
     steps:
-      # 1. Checkout repository
-      - name: Checkout repository
+
+      # ------------ Checkout ------------
+      - name: Checkout repo
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # 2. Install dependencies
-      - name: Install dependencies
+      # ------------ Install deps ------------
+      - name: Install build dependencies
         run: |
           sudo apt update
-          sudo apt install -y git unzip curl build-essential wget zip software-properties-common
-          # GCC 4.8 for DECREE kernel
+          # standard build tools
+          sudo apt install -y git wget unzip zip build-essential \
+            libc6-dev-i386 gcc-multilib g++-multilib
+          # old GCC for DECREE kernel
           sudo apt install -y gcc-4.8 g++-4.8
-          # 32-bit support for libcgc
-          sudo apt install -y gcc-multilib g++-multilib libc6-dev-i386
-          # Python 2 for QEMU-CGC
+          # ensure Python2 for projects that expect it
           sudo apt install -y python2
 
-      # 3. Create working folder
-      - name: Create working folder
-        run: mkdir -p $GITHUB_WORKSPACE/build_${{ matrix.repo }}
+      # ------------ Create working dir ------------
+      - name: Prepare component workspace
+        run: mkdir -p $GITHUB_WORKSPACE/build_${{ matrix.component }}
 
-      # 4. Clone repository
-      - name: Fetch repository
+      # ------------ Clone sources ------------
+      - name: Clone source for ${{ matrix.component }}
         run: |
-          cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
-          case "${{ matrix.repo }}" in
-            cgc-linux-dev)
-              git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git || echo "⚠️ cgc-linux-dev clone failed"
+          cd $GITHUB_WORKSPACE/build_${{ matrix.component }}
+          case "${{ matrix.component }}" in
+            kernel)
+              git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git || echo "kernel clone failed"
               ;;
             libcgc)
-              git clone https://github.com/CyberGrandChallenge/libcgc.git || echo "⚠️ libcgc clone failed"
+              git clone https://github.com/CyberGrandChallenge/libcgc.git || echo "libcgc clone failed"
               ;;
             cgc2elf)
-              git clone https://github.com/CyberGrandChallenge/cgc2elf.git || echo "⚠️ cgc2elf clone failed"
+              git clone https://github.com/CyberGrandChallenge/cgc2elf.git || echo "cgc2elf clone failed"
               ;;
             qemu-cgc)
-              git clone https://github.com/mechaphish/qemu-cgc.git || echo "⚠️ qemu-cgc clone failed"
+              git clone https://github.com/mechaphish/qemu-cgc.git || echo "qemu-cgc clone failed"
               ;;
           esac
 
-      # 5. Build repository (continue even if build fails)
-      - name: Build repository
+      # ------------ Build each component ------------
+      - name: Build ${{ matrix.component }}
         run: |
           set +e
-          cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
-          case "${{ matrix.repo }}" in
-            cgc-linux-dev)
-              cd cgc-linux-dev
-              make ARCH=i386 CC=gcc-4.8 HOSTCC=gcc-4.8 defconfig || echo "⚠️ DECREE kernel defconfig failed"
-              make ARCH=i386 CC=gcc-4.8 HOSTCC=gcc-4.8 -j$(nproc) || echo "⚠️ DECREE kernel build failed"
+          cd $GITHUB_WORKSPACE/build_${{ matrix.component }}
+          case "${{ matrix.component }}" in
+
+            kernel)
+              # rename the kernel dir for easier paths
+              mv linux-source-3.13.2-cgc kernel-src
+              cd kernel-src
+              # use older GCC for DECREE build
+              make ARCH=i386 CC=gcc-4.8 HOSTCC=gcc-4.8 defconfig
+              make ARCH=i386 CC=gcc-4.8 HOSTCC=gcc-4.8 -j$(nproc)
               ;;
+
             libcgc)
               cd libcgc
-              make CC="gcc -m32" AS="as --32" || echo "⚠️ libcgc make failed"
-              sudo make install || echo "⚠️ libcgc install failed"
+              # build as 32-bit with multilib
+              make CC="gcc -m32" AS="as --32"
+              sudo make install
               ;;
+
             cgc2elf)
               cd cgc2elf
-              make CFLAGS="-O2 -w" || echo "⚠️ cgc2elf make failed"
-              sudo cp cgc2elf /usr/local/bin || echo "⚠️ cgc2elf install failed"
+              # disable -Werror by skipping warnings
+              make CFLAGS="-O2 -w"
+              sudo cp cgc2elf /usr/local/bin || echo "install cgc2elf failed"
               ;;
+
             qemu-cgc)
               if [ -d qemu-cgc ]; then
                 cd qemu-cgc
-                ./configure --python=/usr/bin/python2 --target-list=i386-softmmu || echo "⚠️ QEMU-CGC configure failed"
-                make -j$(nproc) || echo "⚠️ QEMU-CGC build failed"
+                # QEMU-CGC uses its custom configure script
+                if [ -f cgc_configure_debug ]; then
+                  ./cgc_configure_debug
+                elif [ -f cgc_configure_opt ]; then
+                  ./cgc_configure_opt
+                else
+                  echo "No CGC configure script found"
+                fi
+                # build
+                make -j$(nproc)
               else
-                echo "⚠️ QEMU-CGC folder not found, skipping."
+                echo "qemu-cgc repo not present"
               fi
               ;;
+
           esac
 
-      # 6. Upload built folder as artifact (even if empty)
-      - name: Upload artifact
+      # ------------ Upload artifact ------------
+      - name: Upload ${{ matrix.component }} artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.repo }}
-          path: $GITHUB_WORKSPACE/build_${{ matrix.repo }}
+          name: ${{ matrix.component }}
+          path: $GITHUB_WORKSPACE/build_${{ matrix.component }}
 
-  combine-artifacts:
+  combine:
     runs-on: ubuntu-latest
-    needs: build-repo
+    needs: build-components
     steps:
-      # 1. Download all matrix artifacts
-      - name: Download artifacts
+
+      - name: Download all component artifacts
         uses: actions/download-artifact@v4
         with:
           path: $GITHUB_WORKSPACE/cgc_env
 
-      # 2. Verify directories
-      - name: List combined directories
-        run: ls -l $GITHUB_WORKSPACE/cgc_env
+      - name: List combined folders
+        run: ls -al $GITHUB_WORKSPACE/cgc_env
 
-      # 3. Zip combined cgc_env
       - name: Zip CGC environment
         run: |
           cd $GITHUB_WORKSPACE
           zip -r CGPT.zip cgc_env
 
-      # 4. Upload final zip
       - name: Upload CGPT.zip
         uses: actions/upload-artifact@v4
         with:
