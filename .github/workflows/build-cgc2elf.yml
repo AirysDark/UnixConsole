@@ -37,7 +37,7 @@ jobs:
         run: |
           ls -l cgc2elf
           file cgc2elf/cgc2elf
-          file cgc2elf/cgc2elf.1.gz
+        
 
           
 
