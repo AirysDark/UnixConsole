@@ -37,6 +37,18 @@ jobs:
         run: |
           ls -l cgc2elf
           file cgc2elf/cgc2elf
+          file cgc2elf/cgc2elf.1.gz
+
+
+      - name: Upload node_module folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: node_module-artifact      
+          # Artifact name in Actions UI
+          path: cgc2elf/build/node_module
+          if-no-files-found: warn
+          compression-level: 6
+          
 
       # 6️⃣ Upload EXACT file (correct path)
       - name: Upload binary
