@@ -14,40 +14,45 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-      # 1️⃣ Checkout the repo
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # 2️⃣ Install required dependencies
+      # 2️⃣ Install dependencies
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y build-essential libelf-dev git pandoc python3
 
-      # 3️⃣ Prepare build directory
-      - name: Create build directory
-        run: mkdir -p $GITHUB_WORKSPACE/build_cgc2elf
+      # 3️⃣ Clean and prepare build directories
+      - name: Prepare build directories
+        run: |
+          rm -rf $GITHUB_WORKSPACE/cgc2elf
+          mkdir -p $GITHUB_WORKSPACE/cgc2elf
+          rm -rf $GITHUB_WORKSPACE/build/node_module_punycode
 
       # 4️⃣ Clone cgc2elf source
       - name: Clone cgc2elf
-        run: git clone https://github.com/CyberGrandChallenge/cgc2elf.git $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
-
-      # 5️⃣ Build cgc2elf binary (ignore unused-result warnings)
-      - name: Build cgc2elf binary
         run: |
-          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
-          make clean
+          git clone https://github.com/CyberGrandChallenge/cgc2elf.git \
+            $GITHUB_WORKSPACE/cgc2elf
+
+      # 5️⃣ Build cgc2elf binary
+      - name: Build cgc2elf
+        run: |
+          cd $GITHUB_WORKSPACE/cgc2elf
+          make clean || true
           make CFLAGS="-O2 -w -Wno-unused-result"
 
-      # 6️⃣ Build man page if pandoc is available
+      # 6️⃣ Build cgc2elf man page
       - name: Build cgc2elf man page
         run: |
-          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
+          cd $GITHUB_WORKSPACE/cgc2elf
           if command -v pandoc >/dev/null 2>&1; then
             pandoc -s -t man cgc2elf.md -o cgc2elf.md.tmp
-            gzip -9 < cgc2elf.md.tmp > cgc2elf.1.gz
+            gzip -9 < cgc2elf.md.tmp > $GITHUB_WORKSPACE/cgc2elf.1.gz
           else
             echo "⚠️ pandoc not installed, skipping man page"
           fi
@@ -57,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-binary
-          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf
+          path: $GITHUB_WORKSPACE/cgc2elf
           if-no-files-found: warn
           compression-level: 6
 
@@ -66,15 +71,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-man
-          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf.1.gz
+          path: $GITHUB_WORKSPACE/cgc2elf.1.gz
           if-no-files-found: warn
           compression-level: 6
 
-      # 9️⃣ Optional: Upload Node modules for debugging or tooling
-      - name: Upload Node modules
+      # 9️⃣ Upload punycode module (if needed)
+      - name: Upload punycode JS files
         uses: actions/upload-artifact@v4
         with:
-          name: cgc2elf-node-modules
-          path: $GITHUB_WORKSPACE/build_cgc2elf/build/node_module_punycode
+          name: cgc2elf-node-punycode
+          path: |
+            $GITHUB_WORKSPACE/build/node_module_punycode/punycode.js
+            $GITHUB_WORKSPACE/build/node_module_punycode/punycode.es6.js
           if-no-files-found: warn
           compression-level: 6
