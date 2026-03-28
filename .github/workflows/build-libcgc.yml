@@ -52,11 +52,13 @@ jobs:
           cd cb-multios
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so
           rm -rf build64/
-          
-          # Manually run cmake and ninja to control the threads (-j2)
           mkdir build64 && cd build64
+          
+          # Configure for 64-bit
           BUILD64=1 cmake .. -GNinja
-          ninja -j2
+          
+          # Target only the libraries needed for cgctk
+          ninja libcgc libpov
 
       # 5️⃣ Verify Build Artifacts
       - name: Verify Architecture
