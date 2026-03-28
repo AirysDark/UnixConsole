@@ -46,7 +46,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-binary
-          path: |
-            cgc2elf/cgc2elf
-            cgc2elf/cgc2elf.1.gz
+          path: cgc2elf/cgc2elf
           if-no-files-found: error
