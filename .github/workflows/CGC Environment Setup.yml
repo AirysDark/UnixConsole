@@ -1,0 +1,113 @@
+name: CGC Environment Setup
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-cgc:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # -----------------------------
+      # 1. Checkout this repo
+      # -----------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # -----------------------------
+      # 2. Install required tools
+      # -----------------------------
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git unzip curl build-essential wget
+          # Install GCC 9 for DECREE kernel build
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt update
+          sudo apt install -y gcc-9 g++-9 zip
+
+      # -----------------------------
+      # 3. Create working directory
+      # -----------------------------
+      - name: Create CGC source folder
+        run: mkdir -p $GITHUB_WORKSPACE/cgc_env
+
+      # -----------------------------
+      # 4. Clone repositories
+      # -----------------------------
+      - name: Clone CGC Repositories
+        run: |
+          cd $GITHUB_WORKSPACE/cgc_env
+          git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git
+          git clone https://github.com/GrammaTech/cgc-cbs.git
+          git clone https://github.com/CyberGrandChallenge/cgc2elf.git
+          git clone https://github.com/CyberGrandChallenge/libcgc.git
+          git clone https://github.com/mechaphish/qemu-cgc.git || echo "QEMU-CGC not available, skipping"
+
+      # -----------------------------
+      # 5. Build DECREE kernel (i386, GCC 9)
+      # -----------------------------
+      - name: Build DECREE kernel
+        run: |
+          cd $GITHUB_WORKSPACE/cgc_env/cgc-linux-dev
+          make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 defconfig
+          make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 -j$(nproc)
+
+      # -----------------------------
+      # 6. Build libcgc
+      # -----------------------------
+      - name: Build libcgc
+        run: |
+          cd $GITHUB_WORKSPACE/cgc_env/libcgc
+          make
+          sudo make install
+
+      # -----------------------------
+      # 7. Build cgc2elf
+      # -----------------------------
+      - name: Build cgc2elf
+        run: |
+          cd $GITHUB_WORKSPACE/cgc_env/cgc2elf
+          make
+          sudo cp cgc2elf /usr/local/bin
+
+      # -----------------------------
+      # 8. Build QEMU-CGC (optional)
+      # -----------------------------
+      - name: Build QEMU-CGC
+        run: |
+          QEMU_DIR=$GITHUB_WORKSPACE/cgc_env/qemu-cgc
+          if [ -d "$QEMU_DIR" ]; then
+            cd "$QEMU_DIR"
+            ./configure --target-list=i386-softmmu
+            make -j$(nproc)
+          else
+            echo "⚠️ QEMU-CGC folder not found, skipping."
+
+      # -----------------------------
+      # 9. Verify directories
+      # -----------------------------
+      - name: List all directories
+        run: ls -l $GITHUB_WORKSPACE/cgc_env
+
+      # -----------------------------
+      # 10. Zip everything
+      # -----------------------------
+      - name: Zip CGC environment
+        run: |
+          cd $GITHUB_WORKSPACE
+          zip -r CGPT.zip cgc_env
+
+      # -----------------------------
+      # 11. Upload zip as artifact
+      # -----------------------------
+      - name: Upload CGPT.zip
+        uses: actions/upload-artifact@v3
+        with:
+          name: CGPT
+          path: $GITHUB_WORKSPACE/CGPT.zip
