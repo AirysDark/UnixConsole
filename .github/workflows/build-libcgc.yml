@@ -2,7 +2,7 @@ name: Build libcgc
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -21,49 +21,47 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential git gcc-multilib g++-multilib xlsxwriter pycrypto defusedxml clang pyyaml matplotlib g++ libstdc++-12-dev g++-12 libstdc++-dev libc6-dev-i386  make wget zip
+          sudo apt install -y build-essential git gcc-multilib g++-multilib \
+          clang make wget zip libc6-dev-i386 libstdc++-12-dev g++-12 \
+          python3-pip python3-venv xlsxwriter pycrypto defusedxml pyyaml matplotlib
 
-      # 3️⃣ Clone libcgc
-      - name: Clone libcgc
+      # 3️⃣ Clone cb-multios (libcgc)
+      - name: Clone cb-multios
         run: |
-          git clone https://github.com/trailofbits/cb-multios
+          git clone https://github.com/trailofbits/cb-multios.git
+          cd cb-multios
+          git checkout main
 
       # 4️⃣ Build libcgc
       - name: Build libcgc
         run: |
           cd cb-multios
-           sudo ln -s /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so
-           cd /home/runner/work/UnixConsole/UnixConsole/cb-multios/
-           rm -rf build64/
-           BUILD64=1 ./build.sh
+          # Fix libstdc++ symlink
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so
+          # Clean previous build
+          rm -rf build64/
+          # Run build script with BUILD64=1
+          BUILD64=1 ./build.sh
 
-
-
-
-
-
-
-
-      # 5️⃣ Verify binary exists
-      - name: Verify libcgc binary
+      # 5️⃣ Verify build output
+      - name: Verify libcgc build
         run: |
-          echo "🔍 Checking build directory:"
-          ls -l libcgc
-          file libcgc
+          echo "🔍 Listing cb-multios directory contents:"
+          ls -l
+          echo "🔍 Check libcgc binaries:"
+          find . -type f -name 'libcgc*' -exec file {} \;
 
-      # 6️⃣ Upload libcgc binary artifact
-      - name: Upload libcgc binary
+      # 6️⃣ Upload libcgc artifacts
+      - name: Upload libcgc binaries
         uses: actions/upload-artifact@v4
         with:
-          name: libcgc-binary
-          path: libcgc
+          name: libcgc-binaries
+          path: cb-multios/build64
           if-no-files-found: error
           compression-level: 6
 
       # 7️⃣ Debug: Print full workspace tree
-      - name: Upload binary
-        uses: actions/upload-artifact@v4
-        with:         
-          name: libcgc-binary
-          path: libcgc 
-          if-no-files-found: error
+      - name: Print full workspace tree
+        run: |
+          echo "🔍 Full workspace tree:"
+          tree -F -A $GITHUB_WORKSPACE || true
