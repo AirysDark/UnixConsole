@@ -53,14 +53,14 @@ jobs:
           fi
 
       # 7️⃣ Debug: List build folder contents
-      - name: Debug: Build folder contents
+      - name: Debug Build folder contents
         run: |
           cd "$GITHUB_WORKSPACE/build_cgc2elf/cgc2elf"
           echo "Build directory contents:"
           ls -la
 
       # 8️⃣ Debug: Full workspace tree
-      - name: Debug: Full workspace tree
+      - name: Debug Full workspace tree
         run: |
           echo "Full workspace contents:"
           find "$GITHUB_WORKSPACE" -type f -ls
