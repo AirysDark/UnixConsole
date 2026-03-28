@@ -9,31 +9,53 @@ jobs:
   build-libcgc:
     runs-on: ubuntu-latest
     continue-on-error: true
+
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
+      # 2️⃣ Install dependencies
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y build-essential git gcc-multilib g++-multilib libc6-dev-i386 wget zip
 
+      # 3️⃣ Clone libcgc
       - name: Clone libcgc
         run: |
-          mkdir -p $GITHUB_WORKSPACE/build_libcgc
-          cd $GITHUB_WORKSPACE/build_libcgc
+          mkdir -p /home/runner/work/UnixConsole/UnixConsole/build_libcgc
+          cd /home/runner/work/UnixConsole/UnixConsole/build_libcgc
           git clone https://github.com/CyberGrandChallenge/libcgc.git
 
+      # 4️⃣ Build libcgc
       - name: Build libcgc
         run: |
-          cd $GITHUB_WORKSPACE/build_libcgc/libcgc
+          cd /home/runner/work/UnixConsole/UnixConsole/build_libcgc/libcgc
           make CC="gcc -m32" AS="as --32" || echo "⚠️ libcgc build failed"
           sudo make install || echo "⚠️ libcgc install failed"
 
-      - name: Upload libcgc artifact
+      # 5️⃣ Verify binary exists
+      - name: Verify libcgc binary
+        run: |
+          echo "🔍 Checking build directory:"
+          ls -l /home/runner/work/UnixConsole/UnixConsole/build_libcgc/libcgc
+          file /home/runner/work/UnixConsole/UnixConsole/build_libcgc/libcgc/libcgc
+
+      # 6️⃣ Upload libcgc binary artifact
+      - name: Upload libcgc binary
         uses: actions/upload-artifact@v4
         with:
-          name: libcgc
-          path: $GITHUB_WORKSPACE/build_libcgc
+          name: libcgc-binary
+          path: /home/runner/work/UnixConsole/UnixConsole/build_libcgc/libcgc/libcgc
+          if-no-files-found: error
+          compression-level: 6
+
+      # 7️⃣ Debug: Print full workspace tree
+      - name: Full workspace tree
+        run: |
+          echo "📂 Full workspace tree:"
+          cd /home/runner/work/UnixConsole/UnixConsole
+          find . -print | sed 's|[^/]*/|   |g'
