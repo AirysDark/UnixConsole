@@ -9,7 +9,6 @@ on:
 jobs:
   build-cgc2elf:
     runs-on: ubuntu-24.04
-
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -24,54 +23,71 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential libelf-dev git pandoc python3 tree
+          sudo apt install -y build-essential libelf-dev git pandoc python3
 
       # 3️⃣ Prepare build directory
       - name: Create build directory
-        run: mkdir -p $GITHUB_WORKSPACE/build_cgc2elf
+        run: mkdir -p build_cgc2elf
 
       # 4️⃣ Clone cgc2elf source
       - name: Clone cgc2elf
-        run: git clone https://github.com/CyberGrandChallenge/cgc2elf.git $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
+        run: git clone https://github.com/CyberGrandChallenge/cgc2elf.git build_cgc2elf/cgc2elf
 
-      # 5️⃣ Build cgc2elf binary (ignore write() warning)
+      # 5️⃣ Clean previous build
+      - name: Clean previous build
+        run: |
+          cd build_cgc2elf/cgc2elf
+          make clean || echo "⚠️ Nothing to clean"
+
+      # 6️⃣ Build cgc2elf binary (ignore warnings)
       - name: Build cgc2elf
         run: |
-          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
-          make clean
+          cd build_cgc2elf/cgc2elf
           make CFLAGS="-O2 -w -Wno-unused-result"
 
-      # 6️⃣ Generate man page
+      # 7️⃣ Build man page if pandoc is available
       - name: Build cgc2elf man page
         run: |
-          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
+          cd build_cgc2elf/cgc2elf
           if command -v pandoc >/dev/null 2>&1; then
             pandoc -s -t man cgc2elf.md -o cgc2elf.md.tmp
             gzip -9 < cgc2elf.md.tmp > cgc2elf.1.gz
+            echo "✅ Man page generated"
           else
             echo "⚠️ pandoc not installed, skipping man page"
           fi
 
-      # 7️⃣ Upload binary artifact
+      # 8️⃣ Verify build outputs
+      - name: Verify cgc2elf outputs
+        run: |
+          cd build_cgc2elf/cgc2elf
+          echo "📂 Build directory contents:"
+          ls -la
+          echo "Checking binary:"
+          if [ -f cgc2elf ]; then echo "✅ Binary exists"; else echo "❌ Binary NOT found"; fi
+          echo "Checking man page:"
+          if [ -f cgc2elf.1.gz ]; then echo "✅ Man page exists"; else echo "⚠️ Man page NOT found"; fi
+
+      # 9️⃣ Upload binary artifact
       - name: Upload cgc2elf binary
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-binary
-          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf
+          path: build_cgc2elf/cgc2elf/cgc2elf
           if-no-files-found: warn
           compression-level: 6
 
-      # 8️⃣ Upload man page artifact
+      # 🔟 Upload man page artifact
       - name: Upload cgc2elf man page
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-man
-          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf.1.gz
+          path: build_cgc2elf/cgc2elf/cgc2elf.1.gz
           if-no-files-found: warn
           compression-level: 6
 
-      # 9️⃣ Debug: List full workspace tree
-      - name: List full workspace tree
+      # 1️⃣1️⃣ Full workspace file tree for debugging
+      - name: Debug: Full workspace tree
         run: |
-          echo "📂 Full directory tree of the workspace:"
-          tree -a -F -L 5 $GITHUB_WORKSPACE
+          echo "📂 Full workspace contents:"
+          find $GITHUB_WORKSPACE -type f -ls
