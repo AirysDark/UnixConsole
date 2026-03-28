@@ -26,14 +26,12 @@ jobs:
       # 3️⃣ Clone libcgc
       - name: Clone libcgc
         run: |
-          mkdir -p /home/runner/work/UnixConsole/UnixConsole/build_libcgc
-          cd /home/runner/work/UnixConsole/UnixConsole/build_libcgc
           git clone https://github.com/CyberGrandChallenge/libcgc.git
 
       # 4️⃣ Build libcgc
       - name: Build libcgc
         run: |
-          cd /home/runner/work/UnixConsole/UnixConsole/build_libcgc/libcgc
+          cd libcgc
           make CC="gcc -m32" AS="as --32" || echo "⚠️ libcgc build failed"
           sudo make install || echo "⚠️ libcgc install failed"
 
@@ -41,21 +39,22 @@ jobs:
       - name: Verify libcgc binary
         run: |
           echo "🔍 Checking build directory:"
-          ls -l /home/runner/work/UnixConsole/UnixConsole/build_libcgc/libcgc
-          file /home/runner/work/UnixConsole/UnixConsole/build_libcgc/libcgc/libcgc
+          ls -l libcgc
+          file libcgc
 
       # 6️⃣ Upload libcgc binary artifact
       - name: Upload libcgc binary
         uses: actions/upload-artifact@v4
         with:
           name: libcgc-binary
-          path: /home/runner/work/UnixConsole/UnixConsole/build_libcgc/libcgc/libcgc
+          path: libcgc
           if-no-files-found: error
           compression-level: 6
 
       # 7️⃣ Debug: Print full workspace tree
-      - name: Full workspace tree
-        run: |
-          echo "📂 Full workspace tree:"
-          cd /home/runner/work/UnixConsole/UnixConsole
-          find . -print | sed 's|[^/]*/|   |g'
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:         
+          name: libcgc-binary
+          path: libcgc 
+          if-no-files-found: error
