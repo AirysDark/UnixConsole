@@ -17,13 +17,11 @@ jobs:
       run:
         shell: bash
     steps:
-      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # 2. Install dependencies
       - name: Install dependencies
         run: |
           sudo apt update
@@ -32,18 +30,16 @@ jobs:
           sudo apt update
           sudo apt install -y gcc-9 g++-9
 
-      # 3. Create working folder for this job
       - name: Create working folder
         run: mkdir -p $GITHUB_WORKSPACE/build_${{ matrix.repo }}
 
-      # 4. Clone the repository
-      - name: Fetch repository
+      - name: Clone repository
         run: |
           cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
           case "${{ matrix.repo }}" in
             cgc-linux-dev)
-              git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git
-              mv linux-source-3.13.2-cgc cgc-linux-dev
+              git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git temp
+              mv temp cgc-linux-dev
               ;;
             libcgc)
               git clone https://github.com/CyberGrandChallenge/libcgc.git
@@ -52,70 +48,63 @@ jobs:
               git clone https://github.com/CyberGrandChallenge/cgc2elf.git
               ;;
             qemu-cgc)
-              git clone https://github.com/mechaphish/qemu-cgc.git || echo "QEMU-CGC not available, skipping"
+              git clone https://github.com/mechaphish/qemu-cgc.git || echo "⚠️ QEMU-CGC not available"
               ;;
           esac
 
-      # 5. Build steps per repo
       - name: Build repository
         run: |
+          set +e  # continue even if build fails
           cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
           case "${{ matrix.repo }}" in
             cgc-linux-dev)
               cd cgc-linux-dev
-              make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 defconfig || echo "⚠️ DECREE kernel defconfig failed"
-              make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 -j$(nproc) || echo "⚠️ DECREE kernel build failed"
+              make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 defconfig
+              make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 -j$(nproc)
               ;;
             libcgc)
               cd libcgc
-              make || echo "⚠️ libcgc make failed"
-              sudo make install || echo "⚠️ libcgc install failed"
+              make
+              sudo make install
               ;;
             cgc2elf)
               cd cgc2elf
-              make || echo "⚠️ cgc2elf make failed"
-              sudo cp cgc2elf /usr/local/bin || echo "⚠️ cgc2elf install failed"
+              make
+              sudo cp cgc2elf /usr/local/bin
               ;;
             qemu-cgc)
               if [ -d qemu-cgc ]; then
                 cd qemu-cgc
-                ./configure --target-list=i386-softmmu || echo "⚠️ QEMU-CGC configure failed"
-                make -j$(nproc) || echo "⚠️ QEMU-CGC build failed"
-              else
-                echo "⚠️ QEMU-CGC folder not found, skipping."
+                ./configure --target-list=i386-softmmu
+                make -j$(nproc)
               fi
               ;;
           esac
 
-      # 6. Upload built folder as artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.repo }}
-          path: $GITHUB_WORKSPACE/build_${{ matrix.repo }}
+          path: $GITHUB_WORKSPACE/build_${{ matrix.repo }}/*
 
   combine-artifacts:
     runs-on: ubuntu-latest
     needs: build-repo
     steps:
-      # 1. Download all artifacts
-      - name: Download artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: $GITHUB_WORKSPACE/cgc_env
 
-      # 2. List combined directories
       - name: List combined directories
         run: ls -l $GITHUB_WORKSPACE/cgc_env
 
-      # 3. Zip the combined cgc_env
       - name: Zip CGC environment
         run: |
           cd $GITHUB_WORKSPACE
           zip -r CGPT.zip cgc_env
 
-      # 4. Upload the final zip
-      - name: Upload CGPT.zip
+      - name: Upload final CGPT.zip
         uses: actions/upload-artifact@v4
         with:
           name: CGPT
