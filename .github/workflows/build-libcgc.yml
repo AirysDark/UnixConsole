@@ -35,8 +35,6 @@ jobs:
         run: |
           git clone https://github.com/trailofbits/cb-multios.git
           cd cb-multios
-          # Ensure we are on the main branch for the latest 64-bit fixes
-          git checkout main
 
       # 4️⃣ Build libcgc (Force 64-bit)
       - name: Build libcgc
