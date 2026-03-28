@@ -50,12 +50,13 @@ jobs:
       - name: Build libcgc
         run: |
           cd cb-multios
-          # Fix potential missing symlink for the linker
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so
-          
-          # Clean and Build
           rm -rf build64/
-          BUILD64=1 ./build.sh
+          
+          # Manually run cmake and ninja to control the threads (-j2)
+          mkdir build64 && cd build64
+          BUILD64=1 cmake .. -GNinja
+          ninja -j2
 
       # 5️⃣ Verify Build Artifacts
       - name: Verify Architecture
