@@ -57,8 +57,8 @@ jobs:
           # Configure for 64-bit
           BUILD64=1 cmake .. -GNinja
           
-          # Target only the libraries needed for cgctk
-          ninja libcgc libpov
+          # Use the target names verified by Ninja
+          ninja cgc pov
 
       # 5️⃣ Verify Build Artifacts
       - name: Verify Architecture
