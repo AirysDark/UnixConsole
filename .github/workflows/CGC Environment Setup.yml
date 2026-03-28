@@ -1,4 +1,4 @@
-name: CGC Environment Setup
+name: CGC Environment Setup (Matrix Build)
 
 on:
   push:
@@ -7,14 +7,17 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-cgc:
+  build-repo:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo: [cgc-linux-dev, libcgc, cgc2elf, qemu-cgc]
     defaults:
       run:
         shell: bash
     steps:
       # -----------------------------
-      # 1. Checkout this repo
+      # 1. Checkout repository
       # -----------------------------
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -28,100 +31,100 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y git unzip curl build-essential wget zip software-properties-common
-          # Install GCC 9 for DECREE kernel build
+          # Install GCC 9 for DECREE kernel
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt update
           sudo apt install -y gcc-9 g++-9
 
       # -----------------------------
-      # 3. Create working directory
+      # 3. Create working folder for this job
       # -----------------------------
-      - name: Create CGC source folder
-        run: mkdir -p $GITHUB_WORKSPACE/cgc_env
+      - name: Create working folder
+        run: mkdir -p $GITHUB_WORKSPACE/build_${{ matrix.repo }}
 
       # -----------------------------
-      # 4. Download and extract repositories
+      # 4. Clone or download the repo
       # -----------------------------
-      - name: Download and extract ZIPs
+      - name: Fetch repository
         run: |
-          cd $GITHUB_WORKSPACE/cgc_env
-          # Download ZIPs
-          curl -L -o cgc-linux-dev.zip https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc/archive/refs/heads/master.zip
-          curl -L -o cgc-cbs.zip https://github.com/GrammaTech/cgc-cbs/archive/refs/heads/master.zip
-          curl -L -o cgc2elf.zip https://github.com/CyberGrandChallenge/cgc2elf/archive/refs/heads/master.zip
-          curl -L -o libcgc.zip https://github.com/CyberGrandChallenge/libcgc/archive/refs/heads/master.zip
-          curl -L -o qemu-cgc.zip https://github.com/mechaphish/qemu-cgc/archive/refs/heads/main.zip || echo "QEMU-CGC ZIP not available, skipping"
-
-          # Unzip and rename directories safely
-          unzip -q cgc-linux-dev.zip
-          mv linux-source-3.13.2-cgc-master cgc-linux-dev
-
-          unzip -q cgc-cbs.zip
-          mv cgc-cbs-master cgc-cbs
-
-          unzip -q cgc2elf.zip
-          mv cgc2elf-master cgc2elf
-
-          unzip -q libcgc.zip
-          mv libcgc-master libcgc
-
-          if [ -f qemu-cgc.zip ]; then
-            unzip -q qemu-cgc.zip
-            QEMU_EXTRACTED_DIR=$(unzip -Z -1 qemu-cgc.zip | head -1 | cut -d/ -f1)
-            mv "$QEMU_EXTRACTED_DIR" qemu-cgc
-          fi
-
-          # Remove ZIP files
-          rm -f *.zip
+          cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
+          case "${{ matrix.repo }}" in
+            cgc-linux-dev)
+              git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git
+              ;;
+            libcgc)
+              git clone https://github.com/CyberGrandChallenge/libcgc.git
+              ;;
+            cgc2elf)
+              git clone https://github.com/CyberGrandChallenge/cgc2elf.git
+              ;;
+            qemu-cgc)
+              git clone https://github.com/mechaphish/qemu-cgc.git || echo "QEMU-CGC not available, skipping"
+              ;;
+          esac
 
       # -----------------------------
-      # 5. Build DECREE kernel (i386, GCC 9)
+      # 5. Build steps per repo
       # -----------------------------
-      - name: Build DECREE kernel
+      - name: Build repository
         run: |
-          cd $GITHUB_WORKSPACE/cgc_env/cgc-linux-dev
-          make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 defconfig
-          make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 -j$(nproc)
+          cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
+          case "${{ matrix.repo }}" in
+            cgc-linux-dev)
+              cd cgc-linux-dev
+              make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 defconfig
+              make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 -j$(nproc)
+              ;;
+            libcgc)
+              cd libcgc
+              make
+              sudo make install
+              ;;
+            cgc2elf)
+              cd cgc2elf
+              make
+              sudo cp cgc2elf /usr/local/bin
+              ;;
+            qemu-cgc)
+              if [ -d qemu-cgc ]; then
+                cd qemu-cgc
+                ./configure --target-list=i386-softmmu
+                make -j$(nproc)
+              else
+                echo "⚠️ QEMU-CGC folder not found, skipping."
+              fi
+              ;;
+          esac
 
       # -----------------------------
-      # 6. Build libcgc
+      # 6. Upload built folder as artifact
       # -----------------------------
-      - name: Build libcgc
-        run: |
-          cd $GITHUB_WORKSPACE/cgc_env/libcgc
-          make
-          sudo make install
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.repo }}
+          path: $GITHUB_WORKSPACE/build_${{ matrix.repo }}
+
+  combine-artifacts:
+    runs-on: ubuntu-latest
+    needs: build-repo
+    steps:
+      # -----------------------------
+      # 1. Download all artifacts from matrix jobs
+      # -----------------------------
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: $GITHUB_WORKSPACE/cgc_env
 
       # -----------------------------
-      # 7. Build cgc2elf
+      # 2. Verify directories
       # -----------------------------
-      - name: Build cgc2elf
-        run: |
-          cd $GITHUB_WORKSPACE/cgc_env/cgc2elf
-          make
-          sudo cp cgc2elf /usr/local/bin
-
-      # -----------------------------
-      # 8. Optional: Build QEMU-CGC
-      # -----------------------------
-      - name: Build QEMU-CGC
-        run: |
-          QEMU_DIR=$GITHUB_WORKSPACE/cgc_env/qemu-cgc
-          if [ -d "$QEMU_DIR" ]; then
-            cd "$QEMU_DIR"
-            ./configure --target-list=i386-softmmu
-            make -j$(nproc)
-          else
-            echo "⚠️ QEMU-CGC folder not found, skipping."
-
-      # -----------------------------
-      # 9. List directories (verification)
-      # -----------------------------
-      - name: List all directories
+      - name: List combined directories
         run: ls -l $GITHUB_WORKSPACE/cgc_env
 
       # -----------------------------
-      # 10. Zip the entire cgc_env folder
+      # 3. Zip the combined cgc_env
       # -----------------------------
       - name: Zip CGC environment
         run: |
@@ -129,7 +132,7 @@ jobs:
           zip -r CGPT.zip cgc_env
 
       # -----------------------------
-      # 11. Upload zip as workflow artifact
+      # 4. Upload the final zip
       # -----------------------------
       - name: Upload CGPT.zip
         uses: actions/upload-artifact@v4
