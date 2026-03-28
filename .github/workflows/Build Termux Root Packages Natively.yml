@@ -1,96 +1,115 @@
-name: Build Unix Root Packages Natively
+name: CGC Environment Setup
 
 on:
-  workflow_dispatch:
   push:
     branches:
-      - master
-      - dev
-    paths:
-      - 'root-packages/**'
-      - 'scripts/**'
+      - main
+  workflow_dispatch:
 
 jobs:
-  build-root-packages:
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        arch: [aarch64, arm, i686, x86_64]
-      fail-fast: false
-
+  build-cgc:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
+      # -----------------------------
+      # 1. Checkout this repo
+      # -----------------------------
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-<<<<<<< Updated upstream
-      # Step 2: Install Python and essential tools
-      - name: Install Python & Utilities
+      # -----------------------------
+      # 2. Install dependencies
+      # -----------------------------
+      - name: Install dependencies
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y python3 python3-pip python3-venv jq curl unzip xz-utils lzip git
+          sudo apt update
+          sudo apt install -y git unzip curl build-essential wget zip software-properties-common
+          # Install GCC 9 for DECREE kernel build
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt update
+          sudo apt install -y gcc-9 g++-9
 
-      # Step 3: Setup Unix-native build environment
-      - name: Setup Unix Build Environment
+      # -----------------------------
+      # 3. Create working directory
+      # -----------------------------
+      - name: Create CGC source folder
+        run: mkdir -p $GITHUB_WORKSPACE/cgc_env
+
+      # -----------------------------
+      # 4. Clone repositories
+      # -----------------------------
+      - name: Clone CGC Repositories
         run: |
-          chmod +x ./scripts/utils/setup-native-unix.sh
-          ./scripts/utils/setup-native-unix.sh 2>&1 | tee /tmp/setup-native-unix.log
+          cd $GITHUB_WORKSPACE/cgc_env
+          git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git
+          git clone https://github.com/GrammaTech/cgc-cbs.git
+          git clone https://github.com/CyberGrandChallenge/cgc2elf.git
+          git clone https://github.com/CyberGrandChallenge/libcgc.git
+          git clone https://github.com/mechaphish/qemu-cgc.git || echo "QEMU-CGC not available, skipping"
 
-      # Step 4: Generate per-package build.sh files
-      - name: Generate build.sh files
+      # -----------------------------
+      # 5. Build DECREE kernel (i386, GCC 9)
+      # -----------------------------
+      - name: Build DECREE kernel
         run: |
-          chmod +x ./scripts/utils/Unix_packages.sh
-          python3 ./scripts/utils/Unix_packages.sh 2>&1 | tee /tmp/Unix_packages.sh.log || true
+          cd $GITHUB_WORKSPACE/cgc_env/cgc-linux-dev
+          make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 defconfig
+          make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 -j$(nproc)
 
-      # Step 5: Build root-packages
-=======
-      - name: Install Python & Essentials
-        run: sudo apt-get update -y && sudo apt-get install -y \
-          python3 python3-pip python3-venv jq curl unzip xz-utils lzip git proot qemu-user-static
-
-      - name: Setup Unix PRoot Environment
+      # -----------------------------
+      # 6. Build libcgc
+      # -----------------------------
+      - name: Build libcgc
         run: |
-          chmod +x ./scripts/build/setup/Unix_setup_proot.sh
-          source ./scripts/build/setup/Unix_setup_proot.sh 2>&1 | tee /tmp/setup-proot.log
+          cd $GITHUB_WORKSPACE/cgc_env/libcgc
+          make
+          sudo make install
 
->>>>>>> Stashed changes
-      - name: Build root-packages for ${{ matrix.arch }}
+      # -----------------------------
+      # 7. Build cgc2elf
+      # -----------------------------
+      - name: Build cgc2elf
         run: |
-          chmod +x ./build.sh
-          ./build.sh $(ls root-packages) 2>&1 | tee /tmp/unix-build-${{ matrix.arch }}.log
+          cd $GITHUB_WORKSPACE/cgc_env/cgc2elf
+          make
+          sudo cp cgc2elf /usr/local/bin
 
-      - name: Archive .deb artifacts
+      # -----------------------------
+      # 8. Optional: Build QEMU-CGC
+      # -----------------------------
+      - name: Build QEMU-CGC
         run: |
-          mkdir -p artifacts
-          find output -type f -name '*.deb' -exec mv {} artifacts/ \; || true
+          QEMU_DIR=$GITHUB_WORKSPACE/cgc_env/qemu-cgc
+          if [ -d "$QEMU_DIR" ]; then
+            cd "$QEMU_DIR"
+            ./configure --target-list=i386-softmmu
+            make -j$(nproc)
+          else
+            echo "⚠️ QEMU-CGC folder not found, skipping."
 
-<<<<<<< Updated upstream
-      # Step 7: Upload artifacts
-=======
->>>>>>> Stashed changes
-      - name: Upload built packages
-        uses: actions/upload-artifact@v7
+      # -----------------------------
+      # 9. List directories (verification)
+      # -----------------------------
+      - name: List all directories
+        run: ls -l $GITHUB_WORKSPACE/cgc_env
+
+      # -----------------------------
+      # 10. Zip the entire cgc_env folder
+      # -----------------------------
+      - name: Zip CGC environment
+        run: |
+          cd $GITHUB_WORKSPACE
+          zip -r CGPT.zip cgc_env
+
+      # -----------------------------
+      # 11. Upload zip as workflow artifact
+      # -----------------------------
+      - name: Upload CGPT.zip
+        uses: actions/upload-artifact@v3
         with:
-          name: unix-root-debs-${{ matrix.arch }}
-          path: artifacts/
-
-<<<<<<< Updated upstream
-      # Step 8: Upload setup/build logs
-      - name: Upload setup/build logs
-=======
-      - name: Upload logs
->>>>>>> Stashed changes
-        if: failure() || always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: unix-build-logs-${{ matrix.arch }}
-          path: |
-<<<<<<< Updated upstream
-            /tmp/setup-native-unix.log
-            /tmp/Unix_packages.sh.log
-            /tmp/unix-build-${{ matrix.arch }}.log
-=======
-            /tmp/setup-proot.log
-            /tmp/unix-build-${{ matrix.arch }}.log
->>>>>>> Stashed changes
+          name: CGPT
+          path: $GITHUB_WORKSPACE/CGPT.zip
