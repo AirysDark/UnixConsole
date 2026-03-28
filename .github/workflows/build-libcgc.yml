@@ -28,7 +28,9 @@ jobs:
             libc++-dev \
             libc++abi-dev \
             python3-pip \
-            tree
+            tree \
+            xlsxwriter \
+            pycrypto
 
       # 3️⃣ Clone and Setup cb-multios
       - name: Clone cb-multios
