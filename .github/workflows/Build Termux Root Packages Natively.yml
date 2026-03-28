@@ -109,7 +109,7 @@ jobs:
       # 11. Upload zip as workflow artifact
       # -----------------------------
       - name: Upload CGPT.zip
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: CGPT
           path: $GITHUB_WORKSPACE/CGPT.zip
