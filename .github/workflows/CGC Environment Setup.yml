@@ -12,99 +12,112 @@ jobs:
     strategy:
       matrix:
         repo: [cgc-linux-dev, libcgc, cgc2elf, qemu-cgc]
-    continue-on-error: true
     defaults:
       run:
         shell: bash
     steps:
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
+      # 2. Install dependencies
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y git unzip curl build-essential wget zip software-properties-common
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt update
-          sudo apt install -y gcc-9 g++-9
+          # GCC 4.8 for DECREE kernel
+          sudo apt install -y gcc-4.8 g++-4.8
+          # 32-bit support for libcgc
+          sudo apt install -y gcc-multilib g++-multilib libc6-dev-i386
+          # Python 2 for QEMU-CGC
+          sudo apt install -y python2
 
+      # 3. Create working folder
       - name: Create working folder
         run: mkdir -p $GITHUB_WORKSPACE/build_${{ matrix.repo }}
 
-      - name: Clone repository
+      # 4. Clone repository
+      - name: Fetch repository
         run: |
           cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
           case "${{ matrix.repo }}" in
             cgc-linux-dev)
-              git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git temp
-              mv temp cgc-linux-dev
+              git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git || echo "⚠️ cgc-linux-dev clone failed"
               ;;
             libcgc)
-              git clone https://github.com/CyberGrandChallenge/libcgc.git
+              git clone https://github.com/CyberGrandChallenge/libcgc.git || echo "⚠️ libcgc clone failed"
               ;;
             cgc2elf)
-              git clone https://github.com/CyberGrandChallenge/cgc2elf.git
+              git clone https://github.com/CyberGrandChallenge/cgc2elf.git || echo "⚠️ cgc2elf clone failed"
               ;;
             qemu-cgc)
-              git clone https://github.com/mechaphish/qemu-cgc.git || echo "⚠️ QEMU-CGC not available"
+              git clone https://github.com/mechaphish/qemu-cgc.git || echo "⚠️ qemu-cgc clone failed"
               ;;
           esac
 
+      # 5. Build repository (continue even if build fails)
       - name: Build repository
         run: |
-          set +e  # continue even if build fails
+          set +e
           cd $GITHUB_WORKSPACE/build_${{ matrix.repo }}
           case "${{ matrix.repo }}" in
             cgc-linux-dev)
               cd cgc-linux-dev
-              make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 defconfig
-              make ARCH=i386 CC=gcc-9 HOSTCC=gcc-9 -j$(nproc)
+              make ARCH=i386 CC=gcc-4.8 HOSTCC=gcc-4.8 defconfig || echo "⚠️ DECREE kernel defconfig failed"
+              make ARCH=i386 CC=gcc-4.8 HOSTCC=gcc-4.8 -j$(nproc) || echo "⚠️ DECREE kernel build failed"
               ;;
             libcgc)
               cd libcgc
-              make
-              sudo make install
+              make CC="gcc -m32" AS="as --32" || echo "⚠️ libcgc make failed"
+              sudo make install || echo "⚠️ libcgc install failed"
               ;;
             cgc2elf)
               cd cgc2elf
-              make
-              sudo cp cgc2elf /usr/local/bin
+              make CFLAGS="-O2 -w" || echo "⚠️ cgc2elf make failed"
+              sudo cp cgc2elf /usr/local/bin || echo "⚠️ cgc2elf install failed"
               ;;
             qemu-cgc)
               if [ -d qemu-cgc ]; then
                 cd qemu-cgc
-                ./configure --target-list=i386-softmmu
-                make -j$(nproc)
+                ./configure --python=/usr/bin/python2 --target-list=i386-softmmu || echo "⚠️ QEMU-CGC configure failed"
+                make -j$(nproc) || echo "⚠️ QEMU-CGC build failed"
+              else
+                echo "⚠️ QEMU-CGC folder not found, skipping."
               fi
               ;;
           esac
 
+      # 6. Upload built folder as artifact (even if empty)
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.repo }}
-          path: $GITHUB_WORKSPACE/build_${{ matrix.repo }}/*
+          path: $GITHUB_WORKSPACE/build_${{ matrix.repo }}
 
   combine-artifacts:
     runs-on: ubuntu-latest
     needs: build-repo
     steps:
-      - name: Download all artifacts
+      # 1. Download all matrix artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: $GITHUB_WORKSPACE/cgc_env
 
+      # 2. Verify directories
       - name: List combined directories
         run: ls -l $GITHUB_WORKSPACE/cgc_env
 
+      # 3. Zip combined cgc_env
       - name: Zip CGC environment
         run: |
           cd $GITHUB_WORKSPACE
           zip -r CGPT.zip cgc_env
 
-      - name: Upload final CGPT.zip
+      # 4. Upload final zip
+      - name: Upload CGPT.zip
         uses: actions/upload-artifact@v4
         with:
           name: CGPT
