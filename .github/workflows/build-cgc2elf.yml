@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential libelf-dev git pandoc python3
+          sudo apt install -y build-essential git gcc pandoc libelf-dev python3
 
       # 3️⃣ Prepare build directory
       - name: Create build directory
@@ -34,14 +34,14 @@ jobs:
       - name: Clone cgc2elf
         run: git clone https://github.com/CyberGrandChallenge/cgc2elf.git $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
 
-      # 5️⃣ Build cgc2elf binary (ignore write() warning)
+      # 5️⃣ Build cgc2elf binary
       - name: Build cgc2elf
         run: |
           cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
           make clean
-          make CFLAGS="-Wno-unused-result -O2 -w"
+          make CFLAGS="-Wno-unused-result"
 
-      # 6️⃣ Generate man page
+      # 6️⃣ Generate man page (optional)
       - name: Build cgc2elf man page
         run: |
           cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
@@ -52,26 +52,33 @@ jobs:
             echo "⚠️ pandoc not installed, skipping man page"
           fi
 
-      # 7️⃣ Upload binary artifact
+      # 7️⃣ Debug: List build folder contents
+      - name: Debug: Build folder contents
+        run: |
+          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
+          echo "📁 Build directory contents:"
+          ls -la
+
+      # 8️⃣ Debug: Full workspace tree
+      - name: Debug: Full workspace tree
+        run: |
+          echo "🌳 Full workspace contents:"
+          find $GITHUB_WORKSPACE -type f -ls
+
+      # 9️⃣ Upload binary artifact
       - name: Upload cgc2elf binary
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-binary
-          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf
+          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf*
           if-no-files-found: warn
           compression-level: 6
 
-      # 8️⃣ Upload man page artifact
+      # 🔟 Upload man page artifact
       - name: Upload cgc2elf man page
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-man
-          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf.1.gz
+          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf*.gz
           if-no-files-found: warn
           compression-level: 6
-
-      # 9️⃣ Debug: Full workspace tree
-      - name: Debug: Full workspace tree
-        run: |
-          echo "📂 Full workspace contents:"
-          find $GITHUB_WORKSPACE -type f -ls
