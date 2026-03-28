@@ -10,15 +10,15 @@ set -euo pipefail
 # ----------------------------
 # Environment Setup
 # ----------------------------
-: "${TMPDIR:=/tmp}"
+: "${TMPDIR:=/tmp/unix_build}"
 export TMPDIR
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export SCRIPT_DIR
 
-# Root output/build directories
-OUTPUT_DIR="${SCRIPT_DIR}/output"
-SRC_DIR="${TMPDIR}/unix_sources"
+# User-writable root build/output directories
+OUTPUT_DIR="${OUTPUT_DIR:-$HOME/unix-build/output}"
+SRC_DIR="${SRC_DIR:-$TMPDIR/unix_sources}"
 mkdir -p "$OUTPUT_DIR" "$SRC_DIR"
 
 # ----------------------------
