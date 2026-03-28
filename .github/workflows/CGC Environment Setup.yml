@@ -40,7 +40,7 @@ jobs:
         run: mkdir -p $GITHUB_WORKSPACE/cgc_env
 
       # -----------------------------
-      # 4. Download and unzip repositories
+      # 4. Download and extract repositories
       # -----------------------------
       - name: Download and extract ZIPs
         run: |
@@ -50,26 +50,27 @@ jobs:
           curl -L -o cgc-cbs.zip https://github.com/GrammaTech/cgc-cbs/archive/refs/heads/master.zip
           curl -L -o cgc2elf.zip https://github.com/CyberGrandChallenge/cgc2elf/archive/refs/heads/master.zip
           curl -L -o libcgc.zip https://github.com/CyberGrandChallenge/libcgc/archive/refs/heads/master.zip
-          curl -L -o qemu-cgc.zip https://github.com/mechaphish/qemu-cgc/archive/refs/heads/master.zip || echo "QEMU-CGC ZIP not available, skipping"
-          
-          # Unzip and rename directories
+          curl -L -o qemu-cgc.zip https://github.com/mechaphish/qemu-cgc/archive/refs/heads/main.zip || echo "QEMU-CGC ZIP not available, skipping"
+
+          # Unzip and rename directories safely
           unzip -q cgc-linux-dev.zip
           mv linux-source-3.13.2-cgc-master cgc-linux-dev
-          
+
           unzip -q cgc-cbs.zip
           mv cgc-cbs-master cgc-cbs
-          
+
           unzip -q cgc2elf.zip
           mv cgc2elf-master cgc2elf
-          
+
           unzip -q libcgc.zip
           mv libcgc-master libcgc
-          
+
           if [ -f qemu-cgc.zip ]; then
             unzip -q qemu-cgc.zip
-            mv qemu-cgc-master qemu-cgc
+            QEMU_EXTRACTED_DIR=$(unzip -Z -1 qemu-cgc.zip | head -1 | cut -d/ -f1)
+            mv "$QEMU_EXTRACTED_DIR" qemu-cgc
           fi
-          
+
           # Remove ZIP files
           rm -f *.zip
 
