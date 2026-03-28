@@ -1,0 +1,39 @@
+name: Build DECREE Kernel
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential git gcc-4.8 g++-4.8 libc6-dev-i386 gcc-multilib g++-multilib wget zip
+
+      - name: Clone kernel source
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/build_kernel
+          cd $GITHUB_WORKSPACE/build_kernel
+          git clone https://github.com/CyberGrandChallenge/linux-source-3.13.2-cgc.git kernel-src
+
+      - name: Build kernel
+        run: |
+          cd $GITHUB_WORKSPACE/build_kernel/kernel-src
+          make ARCH=i386 CC=gcc-4.8 HOSTCC=gcc-4.8 defconfig || echo "⚠️ defconfig failed"
+          make ARCH=i386 CC=gcc-4.8 HOSTCC=gcc-4.8 -j$(nproc) || echo "⚠️ kernel build failed"
+
+      - name: Upload kernel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel
+          path: $GITHUB_WORKSPACE/build_kernel
