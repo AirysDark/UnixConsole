@@ -3,55 +3,45 @@ name: Build cgc2elf
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  build-cgc2elf:
+  build:
     runs-on: ubuntu-24.04
 
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
-      # 1️⃣ Checkout repository
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      # 1️⃣ Checkout
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      # 2️⃣ Install required dependencies
+      # 2️⃣ Install build tools ONLY (no pandoc)
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential libelf-dev git
+          sudo apt install -y build-essential git gcc
 
-      # 3️⃣ Prepare build directory
-      - name: Create build directory
-        run: mkdir -p build_cgc2elf
-
-      # 4️⃣ Clone cgc2elf source
+      # 3️⃣ Clone source
       - name: Clone cgc2elf
-        run: git clone https://github.com/CyberGrandChallenge/cgc2elf.git build_cgc2elf/cgc2elf
-
-      # 5️⃣ Build cgc2elf binary
-      - name: Build cgc2elf
         run: |
-          cd build_cgc2elf/cgc2elf
-          make clean
-          make CFLAGS="-O2 -w -Wno-unused-result"
+          git clone https://github.com/CyberGrandChallenge/cgc2elf.git
 
-      # 6️⃣ Upload binary artifact
-      - name: Upload cgc2elf binary
+      # 4️⃣ Build (NO man page)
+      - name: Build cgc2elf binary only
+        run: |
+          cd cgc2elf
+          make clean || true
+          make CFLAGS="-O2 -w -Wno-unused-result" cgc2elf
+
+      # 5️⃣ VERIFY (so it NEVER silently fails again)
+      - name: Verify binary exists
+        run: |
+          ls -l cgc2elf
+          file cgc2elf/cgc2elf
+
+      # 6️⃣ Upload EXACT file (correct path)
+      - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-binary
-          path: build_cgc2elf/cgc2elf/cgc2elf
-          if-no-files-found: warn
-          compression-level: 6
-
-      # 7️⃣ Debug: list full build directory
-      - name: Show build directory tree
-        run: |
-          echo "🔍 Build directory contents:"
-          tree -a -F build_cgc2elf
+          path: cgc2elf/cgc2elf
+          if-no-files-found: error
