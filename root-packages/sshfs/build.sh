@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Auto-generated Termux build.sh
+TERMUX_PKG_NAME="sshfs"
+TERMUX_PKG_HOMEPAGE=""
+TERMUX_PKG_DESCRIPTION=""
+TERMUX_PKG_LICENSE="GPL-3.0"
+TERMUX_PKG_MAINTAINER="@termux"
+TERMUX_PKG_VERSION="v3.7.21011"
+TERMUX_PKG_SRCURL="https://api.github.com/repos/winfsp/sshfs-win/tarball/v3.7.21011"
+TERMUX_PKG_SHA256=""
+TERMUX_PKG_DEPENDS=""
+TERMUX_PKG_BUILD_IN_SRC=true
+
+termux_step_post_make_install() {
+    echo "Installing directories for ${TERMUX_PKG_NAME}..."
+
+    # Standard directories
+    mkdir -p "$TERMUX_PREFIX/bin"
+    mkdir -p "$TERMUX_PREFIX/share/man/man1"
+    mkdir -p "$TERMUX_PREFIX/share/doc/${TERMUX_PKG_NAME}"
+
+    # --- INSTALL BINARIES ---
+    # Example: cp "sshfs" "$TERMUX_PREFIX/bin/"
+
+    # --- INSTALL MAN PAGES ---
+    # Example: install -Dm600 "doc/sshfs.1" "$TERMUX_PREFIX/share/man/man1/"
+
+    # --- INSTALL DOCUMENTATION ---
+    # Example: cp README.md "$TERMUX_PREFIX/share/doc/${TERMUX_PKG_NAME}/"
+
+    # --- PATCH ADJUSTMENTS ---
+    # In sshfs.c: Change buffers from LINE_MAX to PATH_MAX (already applied in patch)
+    # char line[PATH_MAX]; instead of char line[LINE_MAX];
+    # while (fgets(line, PATH_MAX, fp) != NULL) { ... }
+
+    echo "Install placeholders complete for ${TERMUX_PKG_NAME}"
+}
