@@ -21,19 +21,28 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential git gcc-multilib g++-multilib libc6-dev-i386 wget zip
+          sudo apt install -y build-essential git gcc-multilib g++-multilib xlsxwriter pycrypto defusedxml clang pyyaml matplotlib g++ libstdc++-12-dev g++-12 libstdc++-dev libc6-dev-i386  make wget zip
 
       # 3️⃣ Clone libcgc
       - name: Clone libcgc
         run: |
-          git clone https://github.com/CyberGrandChallenge/libcgc.git
+          git clone https://github.com/trailofbits/cb-multios
 
       # 4️⃣ Build libcgc
       - name: Build libcgc
         run: |
-          cd libcgc
-          make CC="gcc -m32" AS="as --32" || echo "⚠️ libcgc build failed"
-          sudo make install || echo "⚠️ libcgc install failed"
+          cd cb-multios
+           sudo ln -s /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so
+           cd /home/runner/work/UnixConsole/UnixConsole/cb-multios/
+           rm -rf build64/
+           BUILD64=1 ./build.sh
+
+
+
+
+
+
+
 
       # 5️⃣ Verify binary exists
       - name: Verify libcgc binary
