@@ -41,8 +41,8 @@ jobs:
       # Step 4: Generate per-package build.sh files using Python
       - name: Generate build.sh files
         run: |
-          chmod +x ./scripts/utils/Unix_packages.sh
-          python3 ./scripts/utils/Unix_packages.sh 2>&1 | tee /tmp/Unix_packages.sh.log
+          chmod +x ./scripts/utils/setup-build-sh.py
+          python3 ./scripts/utils/setup-build-sh.py 2>&1 | tee /tmp/setup-build-sh.log
 
       # Step 5: Build only root-packages for the target architecture
       - name: Build root-packages for ${{ matrix.arch }}
