@@ -14,7 +14,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-      # 1️⃣ Checkout the repo
+      # 1️⃣ Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
@@ -24,61 +24,66 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential libelf-dev git pandoc python3
+          sudo apt install -y build-essential libelf-dev git pandoc python3 gzip
 
       # 3️⃣ Prepare build directory
       - name: Create build directory
-        run: mkdir -p "$GITHUB_WORKSPACE/build_cgc2elf"
+        run: mkdir -p $GITHUB_WORKSPACE/build_cgc2elf
 
       # 4️⃣ Clone cgc2elf source
       - name: Clone cgc2elf
-        run: git clone https://github.com/CyberGrandChallenge/cgc2elf.git "$GITHUB_WORKSPACE/build_cgc2elf/cgc2elf"
+        run: git clone https://github.com/CyberGrandChallenge/cgc2elf.git $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
 
-      # 5️⃣ Clean and build cgc2elf binary
+      # 5️⃣ Clean previous builds
+      - name: Clean previous builds
+        run: |
+          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
+          make clean
+
+      # 6️⃣ Build cgc2elf binary
       - name: Build cgc2elf
         run: |
-          cd "$GITHUB_WORKSPACE/build_cgc2elf/cgc2elf"
-          make clean
+          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
           make CFLAGS="-Wno-unused-result"
 
-      # 6️⃣ Generate man page (optional)
+      # 7️⃣ Generate man page (optional)
       - name: Build cgc2elf man page
         run: |
-          cd "$GITHUB_WORKSPACE/build_cgc2elf/cgc2elf"
+          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
           if command -v pandoc >/dev/null 2>&1; then
             pandoc -s -t man cgc2elf.md -o cgc2elf.md.tmp
             gzip -9 < cgc2elf.md.tmp > cgc2elf.1.gz
           else
-            echo "pandoc not installed, skipping man page"
+            echo "⚠️ pandoc not installed, skipping man page"
           fi
 
-      # 7️⃣ Debug: List build folder contents
-      - name: Debug Build folder contents
+      # 8️⃣ Debug: List build folder contents
+      - name: Build directory contents
         run: |
-          cd "$GITHUB_WORKSPACE/build_cgc2elf/cgc2elf"
-          echo "Build directory contents:"
+          cd $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf
+          echo "📂 Build directory contents:"
           ls -la
 
-      # 8️⃣ Debug: Full workspace tree
-      - name: Debug Full workspace tree
+      # 9️⃣ Debug: Full workspace tree
+      - name: Full workspace tree
         run: |
-          echo "Full workspace contents:"
-          find "$GITHUB_WORKSPACE" -type f -ls
+          echo "🌳 Full workspace contents:"
+          find $GITHUB_WORKSPACE -type f -ls
 
-      # 9️⃣ Upload binary artifact
+      # 🔟 Upload binary artifact
       - name: Upload cgc2elf binary
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-binary
-          path: "$GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf"
+          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf
           if-no-files-found: warn
           compression-level: 6
 
-      # 🔟 Upload man page artifact
+      # 1️⃣1️⃣ Upload man page artifact
       - name: Upload cgc2elf man page
         uses: actions/upload-artifact@v4
         with:
           name: cgc2elf-man
-          path: "$GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf.1.gz"
+          path: $GITHUB_WORKSPACE/build_cgc2elf/cgc2elf/cgc2elf.1.gz
           if-no-files-found: warn
           compression-level: 6
