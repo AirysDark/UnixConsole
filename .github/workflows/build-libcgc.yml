@@ -81,7 +81,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: libcgc-x86_64
-          path: cb-multios/build64
+          path: |
+            cb-multios/build64/lib/
+            cb-multios/build64/bin/
+            cb-multios/include/
           if-no-files-found: error
           retention-days: 5
 
@@ -89,4 +92,4 @@ jobs:
       - name: Workspace Summary
         run: |
           echo "✅ Build Complete. Directory Structure:"
-          tree -L 4 cb-multios/build64 || true
+          tree -L 3 cb-multios/build64
