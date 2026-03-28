@@ -1,4 +1,4 @@
-name: Build libcgc
+name: Build libcgc x86_64
 
 on:
   push:
@@ -6,62 +6,79 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-libcgc:
+  build-libcgc-64bit:
     runs-on: ubuntu-latest
-    continue-on-error: true
-
+    
     steps:
       # 1️⃣ Checkout repository
       - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v4
 
-      # 2️⃣ Install dependencies
+      # 2️⃣ Install dependencies (Critical for Clang + 64-bit linking)
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential git gcc-multilib g++-multilib \
-          clang make wget zip libc6-dev-i386 libstdc++-12-dev g++-12 \
-          python3-pip python3-venv
+          sudo apt install -y \
+            build-essential \
+            clang \
+            make \
+            git \
+            g++-12 \
+            libstdc++-12-dev \
+            libc++-dev \
+            libc++abi-dev \
+            python3-pip \
+            tree
 
-      # 3️⃣ Clone cb-multios (libcgc)
+      # 3️⃣ Clone and Setup cb-multios
       - name: Clone cb-multios
         run: |
-          git clone https://github.com/trailofbits/cb-multios.git
+          git clone https://github.com
           cd cb-multios
+          # Ensure we are on the main branch for the latest 64-bit fixes
           git checkout main
 
-      # 4️⃣ Build libcgc
+      # 4️⃣ Build libcgc (Force 64-bit)
       - name: Build libcgc
         run: |
           cd cb-multios
-          # Fix libstdc++ symlink
+          # Fix potential missing symlink for the linker
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so
-          # Clean previous build
+          
+          # Clean and Build
           rm -rf build64/
-          # Run build script with BUILD64=1
           BUILD64=1 ./build.sh
 
-      # 5️⃣ Verify build output
-      - name: Verify libcgc build
+      # 5️⃣ Verify Build Artifacts
+      - name: Verify Architecture
         run: |
-          echo "🔍 Listing cb-multios directory contents:"
-          ls -l
-          echo "🔍 Check libcgc binaries:"
-          find . -type f -name 'libcgc*' -exec file {} \;
+          echo "🔍 Checking library architecture..."
+          # Check the static library
+          file cb-multios/build64/lib/libcgc.a || echo "⚠️ Library not found"
+          
+          echo "🔍 Checking a sample Challenge Binary..."
+          # Find the first binary in the bin folder and check it
+          SAMPLE_BIN=$(find cb-multios/build64/bin -type f | head -n 1)
+          if [ -f "$SAMPLE_BIN" ]; then
+            file "$SAMPLE_BIN"
+          else
+            echo "⚠️ No binaries found in build64/bin"
+          fi
 
-      # 6️⃣ Upload libcgc artifacts
-      - name: Upload libcgc binaries
+      # 6️⃣ Upload Artifacts for cgctk
+      - name: Upload libcgc-64bit-artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: libcgc-binaries
-          path: cb-multios/build64
+          name: libcgc-x86_64
+          path: |
+            cb-multios/build64/lib/
+            cb-multios/build64/bin/
+            cb-multios/include/
           if-no-files-found: error
-          compression-level: 6
+          retention-days: 5
 
-      # 7️⃣ Debug: Print full workspace tree
-      - name: Print full workspace tree
+      # 7️⃣ Debug Output
+      - name: Workspace Summary
         run: |
-          echo "🔍 Full workspace tree:"
-          tree -F -A $GITHUB_WORKSPACE || true
+          echo "✅ Build Complete. Directory Structure:"
+          tree -L 3 cb-multios/build64
