@@ -38,18 +38,21 @@ jobs:
         run: |
           git clone https://github.com/mechaphish/qemu-cgc.git build_qemu-cgc
 
-      # 3.5️⃣ Patch 64-bit support from standard QEMU 2.3.0
+      # 3.5️⃣ Patch 64-bit support from standard QEMU 2.3.0 mirror
       - name: Patch x86_64 headers
         run: |
-          # Download standard QEMU 2.3.0 source
-          wget https://download.qemu.org
-          tar -xjf qemu-2.3.0.tar.bz2
+          # Clone standard QEMU repo at the v2.3.0 tag (shallow clone for speed)
+          git clone --depth 1 --branch v2.3.0 https://github.com qemu_standard
           
-          # Copy the missing x86_64 directory into qemu-cgc
-          cp -r qemu-2.3.0/linux-user/x86_64 build_qemu-cgc/linux-user/
+          # Create the destination folder in case it doesn't exist
+          mkdir -p build_qemu-cgc/linux-user/x86_64
           
-          # Clean up the downloaded files to save space
-          rm -rf qemu-2.3.0 qemu-2.3.0.tar.bz2
+          # Copy the missing x86_64 directory and syscall files
+          cp -r qemu_standard/linux-user/x86_64/* build_qemu-cgc/linux-user/x86_64/
+          
+          # Clean up to save disk space
+          rm -rf qemu_standard
+
 
       # 4️⃣ Build QEMU-CGC (Now with x86_64 enabled)
       - name: Build QEMU-CGC
