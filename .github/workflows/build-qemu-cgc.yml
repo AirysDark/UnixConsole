@@ -2,38 +2,65 @@ name: Build QEMU-CGC
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   build-qemu-cgc:
     runs-on: ubuntu-latest
-    continue-on-error: true
+
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # 2️⃣ Install dependencies
+      # We install python2.7 and ninja-build which are often required for older QEMU builds
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential git python2 libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev wget unzip zip
+          sudo apt install -y build-essential git python2 ninja-build libglib2.0-dev \
+            libfdt-dev libpixman-1-dev zlib1g-dev wget unzip zip tree
 
+      # 3️⃣ Clone QEMU-CGC
       - name: Clone QEMU-CGC
         run: |
-          mkdir -p $GITHUB_WORKSPACE/build_qemu-cgc
-          cd $GITHUB_WORKSPACE/build_qemu-cgc
-          git clone https://github.com/mechaphish/qemu-cgc.git || echo "⚠️ QEMU-CGC clone failed"
+          git clone https://github.com/mechaphish/qemu-cgc.git build_qemu-cgc
 
+      # 4️⃣ Build QEMU-CGC
       - name: Build QEMU-CGC
         run: |
-          cd $GITHUB_WORKSPACE/build_qemu-cgc/qemu-cgc || echo "⚠️ qemu-cgc folder missing"
-          ./configure --target-list=i386-softmmu || echo "⚠️ qemu configure failed"
-          make -j$(nproc) || echo "⚠️ qemu build failed"
+          cd build_qemu-cgc
+          # Explicitly point to python2 and set targets
+          ./configure --python=python2 --target-list=i386-linux-user,x86_64-linux-user --static
+          make -j$(nproc)
 
-      - name: Upload QEMU-CGC artifact
+      # 5️⃣ Verify built binaries
+      - name: Verify QEMU-CGC binaries
+        run: |
+          echo "🔍 Checking binaries:"
+          ls -l build_qemu-cgc/i386-linux-user/qemu-i386 || echo "⚠️ 32-bit binary missing"
+          ls -l build_qemu-cgc/x86_64-linux-user/qemu-x86_64 || echo "⚠️ 64-bit binary missing"
+          # Run a quick version check to ensure they execute
+          build_qemu-cgc/i386-linux-user/qemu-i386 -version
+
+      # 6️⃣ Upload artifacts
+      - name: Upload QEMU-CGC 32-bit binary
         uses: actions/upload-artifact@v4
         with:
-          name: qemu-cgc
-          path: $GITHUB_WORKSPACE/build_qemu-cgc
+          name: qemu-cgc-i386
+          path: build_qemu-cgc/i386-linux-user/qemu-i386
+          if-no-files-found: error
+
+      - name: Upload QEMU-CGC 64-bit binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-cgc-x86_64
+          path: build_qemu-cgc/x86_64-linux-user/qemu-x86_64
+          if-no-files-found: error
+
+      # 7️⃣ Workspace tree (debug)
+      - name: Workspace tree (debug)
+        run: tree -L 3 build_qemu-cgc || true
