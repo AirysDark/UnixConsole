@@ -41,8 +41,13 @@ jobs:
       - name: Build QEMU-CGC
         run: |
           cd build_qemu-cgc
-          # --disable-werror is REQUIRED to bypass deprecated GLib function errors
-          ./configure --python=python2 --target-list=i386-linux-user,x86_64-linux-user --static --disable-werror
+          # --disable-guest-agent and --disable-tools bypasses the 'major/minor' errors
+          ./configure --python=python2 \
+                      --target-list=i386-linux-user,x86_64-linux-user \
+                      --static \
+                      --disable-werror \
+                      --disable-guest-agent \
+                      --disable-tools
           make -j$(nproc)
 
 
