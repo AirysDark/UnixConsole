@@ -36,7 +36,7 @@ jobs:
       # 3️⃣ Clone QEMU-CGC
       - name: Clone QEMU-CGC
         run: |
-          git clone https://github.com build_qemu-cgc
+          git clone https://github.com/mechaphish/qemu-cgc.git build_qemu-cgc
 
       # 3.5️⃣ Patch 64-bit support from standard QEMU 2.3.0
       - name: Patch x86_64 headers
