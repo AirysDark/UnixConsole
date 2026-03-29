@@ -37,15 +37,26 @@ jobs:
           mkdir -p build_64bit/linux-user/x86_64
           cp -r qemu_standard/linux-user/x86_64/* build_64bit/linux-user/x86_64/
           
-          # Patch registers in 64-bit folder ONLY
-          find build_64bit/linux-user/x86_64 -type f -name "*.[ch]" -exec sed -i 's/->esp/->rsp/g' {} +
-          find build_64bit/linux-user/x86_64 -type f -name "*.[ch]" -exec sed -i 's/->eip/->rip/g' {} +
+          # 1. REGISTER PATCH: Catch all variations of regs-> and env->
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)esp/\1rsp/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)eip/\1rip/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)eax/\1rax/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)ebx/\1rbx/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)ecx/\1rcx/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)edx/\1rdx/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)esi/\1rsi/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)edi/\1rdi/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)ebp/\1rbp/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/env->eip/env->rip/g' {} +
+
+          # 2. FIX MISSING MACRO: TASK_UNMAPPED_BASE for x86_64
+          sed -i '/#define MMAP_LAYOUT_H/a #define TASK_UNMAPPED_BASE (1ULL << 44)' build_64bit/linux-user/mmap.c || true
           
-          # Global Nukes
+          # 3. GLOBAL NUKES
           find build_64bit -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error.*//g' {} +
           find build_64bit -type f -name "*.[ch]" -exec sed -i 's/.*_Static_assert.*//g' {} +
           
-          # Remove CGC syscalls for 64-bit pass
+          # 4. REMOVE CGC SYSCALLS
           sed -i '/case TARGET_NR_receive:/,/case TARGET_NR_random:/d' build_64bit/linux-user/syscall.c
           sed -i '/case TARGET_NR_terminate:/,/case TARGET_NR_random:/d' build_64bit/linux-user/strace.c
 
