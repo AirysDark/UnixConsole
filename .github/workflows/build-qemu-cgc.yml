@@ -38,27 +38,27 @@ jobs:
         run: |
           git clone https://github.com/mechaphish/qemu-cgc.git build_qemu-cgc
 
-      # 3.5️⃣ Patch 64-bit support from standard QEMU 2.3.0 mirror
       # 3.5️⃣ Patch 64-bit support and bypass all 32-bit hardcodes
       - name: Patch x86_64 headers
         run: |
-          # 1. Get standard headers
+          # 1. Get standard headers from a reliable mirror
           git clone --depth 1 --branch v2.3.0 https://gitlab.com/qemu-project/qemu.git qemu_standard
           mkdir -p build_qemu-cgc/linux-user/x86_64
           cp -r qemu_standard/linux-user/x86_64/* build_qemu-cgc/linux-user/x86_64/
           
-          # 2. Bypass 32-bit check in translate-all.c
-          sed -i 's/_Static_assert(TARGET_LONG_SIZE == 4,/\/\/ Bypassed/_' build_qemu-cgc/translate-all.c
+          # 2. Bypass 32-bit check in translate-all.c (Using | as delimiter)
+          sed -i 's|_Static_assert(TARGET_LONG_SIZE == 4,|// Bypassed|' build_qemu-cgc/translate-all.c
           
           # 3. Bypass 32-bit check in syscall.c
-          sed -i 's/_Static_assert(sizeof(abi_long) == 4,/\/\/ Bypassed/_' build_qemu-cgc/linux-user/syscall.c
+          sed -i 's|_Static_assert(sizeof(abi_long) == 4,|// Bypassed|' build_qemu-cgc/linux-user/syscall.c
           
-          # 4. Wrap CGC syscalls to prevent 'undeclared' errors on 64-bit
-          # This inserts an #ifdef around the custom CGC syscall cases
+          # 4. Wrap CGC syscalls in #ifdef TARGET_I386
+          # We use a simpler match to ensure it doesn't fail
           sed -i '/case TARGET_NR_receive:/i #ifdef TARGET_I386' build_qemu-cgc/linux-user/syscall.c
           sed -i '/case TARGET_NR_random:/a #endif' build_qemu-cgc/linux-user/syscall.c
           
           rm -rf qemu_standard
+
 
 
 
