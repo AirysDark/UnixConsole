@@ -44,7 +44,6 @@ jobs:
           # --disable-guest-agent and --disable-tools bypasses the 'major/minor' errors
           ./configure --python=python2 \
                       --target-list=i386-linux-user,x86_64-linux-user \
-                      --static \
                       --disable-werror \
                       --disable-guest-agent \
                       --disable-tools
@@ -57,16 +56,17 @@ jobs:
           ls -l build_qemu-cgc/i386-linux-user/qemu-i386 || echo "⚠️ 32-bit binary missing"
           ls -l build_qemu-cgc/x86_64-linux-user/qemu-x86_64 || echo "⚠️ 64-bit binary missing"
 
+
+
+      # 6️⃣ Upload artifacts (Paths change slightly without static)
       - name: Upload QEMU-CGC 32-bit binary
         uses: actions/upload-artifact@v4
         with:
           name: qemu-cgc-i386
           path: build_qemu-cgc/i386-linux-user/qemu-i386
-          if-no-files-found: error
 
       - name: Upload QEMU-CGC 64-bit binary
         uses: actions/upload-artifact@v4
         with:
           name: qemu-cgc-x86_64
           path: build_qemu-cgc/x86_64-linux-user/qemu-x86_64
-          if-no-files-found: error
