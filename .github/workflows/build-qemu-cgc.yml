@@ -49,8 +49,15 @@ jobs:
                       --disable-tools \
                       --disable-docs \
                       --disable-system
-          # ONLY build the specific user-mode targets
-          make -j$(nproc) i386-linux-user/all x86_64-linux-user/all
+
+          # 1. Build the supporting libraries first
+          make -j$(nproc) libqemuutil.a libqemustub.a
+
+          # 2. Build the 32-bit CGC binary specifically
+          make -j$(nproc) subdir-i386-linux-user
+
+          # 3. Build the 64-bit binary specifically
+          make -j$(nproc) subdir-x86_64-linux-user
 
 
 
