@@ -1,4 +1,4 @@
-name: Build QEMU-CGC Dual Arch
+name: Build QEMU-CGC x86_64 
 
 on:
   push:
@@ -18,58 +18,36 @@ jobs:
           sudo apt install -y \
             python2 build-essential git ninja-build libglib2.0-dev \
             libfdt-dev libpixman-1-dev zlib1g-dev tree
+            
+      -  name: Clone and Force Patch
+         run: |
+          git clone https://github.com/mechaphish/qemu-cgc.git build_cgc
+          git clone --depth 1 --branch v2.3.0 https://gitlab.com/qemu-project/qemu.git qemu_std
+          
+          # 1. Copy missing x86_64 architecture files
+          mkdir -p build_cgc/linux-user/x86_64
+          cp -r qemu_std/linux-user/x86_64/* build_cgc/linux-user/x86_64/
 
-      # --- 32-BIT BUILD (DISABLE TOOLS TO AVOID ERROR) ---
-      - name: Build 32-bit QEMU-CGC
-        run: |
-          git clone https://github.com/mechaphish/qemu-cgc.git build_32bit
-          cd build_32bit
-          ./configure --python=python2 --target-list=i386-linux-user --static \
-                      --disable-werror --disable-system --disable-guest-agent --disable-tools
+          # 2. THE CRITICAL FIX: Restore 64-bit registers to the CPU structure
+          # This replaces the 32-bit 'eip' definition with the 64-bit 'rip' union
+          sed -i 's/target_ulong eip;/#ifdef TARGET_X86_64\n    target_ulong rip;\n#else\n    target_ulong eip;\n#endif/g' build_cgc/target-i386/cpu.h
+          
+          # 3. Fix the 'target_pt_regs' structure for 64-bit
+          # Replaces the 32-bit struct members with 64-bit ones in the headers
+          find build_cgc/linux-user/x86_64 -name "*.h" -exec sed -i 's/\beip\b/rip/g' {} +
+          find build_cgc/linux-user/x86_64 -name "*.h" -exec sed -i 's/\besp\b/rsp/g' {} +
+
+          # 4. Nuke the 32-bit-only traps
+          find build_cgc -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error.*//g' {} +
+          find build_cgc -type f -name "*.[ch]" -exec sed -i 's/.*_Static_assert.*//g' {} +
+
+          # 5. Build only the 64-bit target with CGC code
+          cd build_cgc
+          ./configure --python=python2 --target-list=x86_64-linux-user --static --disable-werror --disable-system --disable-tools
           make -j$(nproc)
 
-      # --- 64-BIT BUILD (PATCHED) ---
-      - name: Build 64-bit QEMU-CGC
-        run: |
-          git clone https://github.com/mechaphish/qemu-cgc.git build_64bit
-          git clone --depth 1 --branch v2.3.0 https://gitlab.com/qemu-project/qemu.git qemu_standard
-          
-          mkdir -p build_64bit/linux-user/x86_64
-          cp -r qemu_standard/linux-user/x86_64/* build_64bit/linux-user/x86_64/
-          
-          # 1. REGISTER PATCH: Catch all variations of regs-> and env->
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)esp/\1rsp/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)eip/\1rip/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)eax/\1rax/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)ebx/\1rbx/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)ecx/\1rcx/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)edx/\1rdx/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)esi/\1rsi/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)edi/\1rdi/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/\b\(regs[->.]*\)ebp/\1rbp/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/env->eip/env->rip/g' {} +
-
-          # 2. FIX MISSING MACRO: TASK_UNMAPPED_BASE for x86_64
-          sed -i '/#define MMAP_LAYOUT_H/a #define TASK_UNMAPPED_BASE (1ULL << 44)' build_64bit/linux-user/mmap.c || true
-          
-          # 3. GLOBAL NUKES
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error.*//g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/.*_Static_assert.*//g' {} +
-          
-          # 4. REMOVE CGC SYSCALLS
-          sed -i '/case TARGET_NR_receive:/,/case TARGET_NR_random:/d' build_64bit/linux-user/syscall.c
-          sed -i '/case TARGET_NR_terminate:/,/case TARGET_NR_random:/d' build_64bit/linux-user/strace.c
-
-          cd build_64bit
-          ./configure --python=python2 --target-list=x86_64-linux-user --static \
-                      --disable-werror --disable-system --disable-guest-agent --disable-tools
-          make -j$(nproc)
-
-      # --- UPLOAD BOTH ---
-      - name: Upload Artifacts
+      - name: Upload 64-bit CGC
         uses: actions/upload-artifact@v4
         with:
-          name: qemu-cgc-binaries
-          path: |
-            build_32bit/i386-linux-user/qemu-i386
-            build_64bit/x86_64-linux-user/qemu-x86_64
+          name: qemu-cgc-64bit
+          path: build_cgc/x86_64-linux-user/qemu-x86_64
