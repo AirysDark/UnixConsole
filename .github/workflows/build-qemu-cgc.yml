@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-qemu-cgc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 
 
     steps:
       # 1️⃣ Checkout repository
@@ -21,7 +21,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential /
+          sudo apt install -y /
+          build-essential /
           git /
           python2 /
           ninja-build /
@@ -32,7 +33,7 @@ jobs:
           wget /
           unzip /
           zip /
-          tree
+          tree 
 
       # 3️⃣ Clone QEMU-CGC
       - name: Clone QEMU-CGC
