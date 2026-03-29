@@ -1,4 +1,4 @@
-name: Build QEMU-CGC
+name: Build QEMU-CGC Dual Arch
 
 on:
   push:
@@ -6,106 +6,58 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-qemu-cgc:
-    runs-on: ubuntu-22.04 
-
+  build-qemu:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y \
-            build-essential \
-            git \
-            python2 \
-            python2-minimal \
-            ninja-build \
-            libglib2.0-dev \
-            libfdt-dev \
-            libpixman-1-dev \
-            zlib1g-dev \
-            wget \
-            unzip \
-            zip \
-            tree
+          sudo apt install -y build-essential git python2 ninja-build libglib2.0-dev \
+            libfdt-dev libpixman-1-dev zlib1g-dev tree
 
-      # 3️⃣ Clone QEMU-CGC
-      - name: Clone QEMU-CGC
+      # --- 32-BIT BUILD (AUTHENTIC) ---
+      - name: Setup 32-bit Folder
         run: |
-          git clone https://github.com/mechaphish/qemu-cgc.git build_qemu-cgc
+          git clone https://github.com/mechaphish/qemu-cgc.git build_32bit
+          cd build_32bit
+          ./configure --python=python2 --target-list=i386-linux-user --static --disable-werror --disable-system
+          make -j$(nproc)
 
-
-      # 3.5️⃣ Surgical patch for 64-bit support
-      - name: Patch x86_64 headers
+      # --- 64-BIT BUILD (PATCHED) ---
+      - name: Setup 64-bit Folder
         run: |
-          # 1. Get missing x86_64 headers
+          git clone https://github.com/mechaphish/qemu-cgc.git build_64bit
           git clone --depth 1 --branch v2.3.0 https://gitlab.com/qemu-project/qemu.git qemu_standard
-          mkdir -p build_qemu-cgc/linux-user/x86_64
-          cp -r qemu_standard/linux-user/x86_64/* build_qemu-cgc/linux-user/x86_64/
           
-          # 2. Comment out 32-bit ONLY traps (Don't delete, just comment)
-          find build_qemu-cgc -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error/\/\/ #error/g' {} +
-          find build_qemu-cgc -type f -name "*.[ch]" -exec sed -i 's/.*_Static_assert/\/\/ _Static_assert/g' {} +
+          # Patch x86_64 headers into the 64bit folder
+          mkdir -p build_64bit/linux-user/x86_64
+          cp -r qemu_standard/linux-user/x86_64/* build_64bit/linux-user/x86_64/
           
-          # 3. FIX signal.c: Hide the CGC-specific syscall switch cases for 64-bit
-          # We use a pattern that specifically targets the CGC-added syscalls without breaking the #ifdef blocks
-          sed -i 's/case TARGET_NR_receive:/#ifdef TARGET_I386\n    case TARGET_NR_receive:/' build_qemu-cgc/linux-user/syscall.c
-          sed -i 's/case TARGET_NR_random:/    case TARGET_NR_random:\n#endif/' build_qemu-cgc/linux-user/syscall.c
+          # Aggressive Register Patch (Safe here because it's a separate folder)
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/env->eip/env->rip/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/regs->esp/regs->rsp/g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/regs->eip/regs->rip/g' {} +
           
-          # 4. FIX strace.c: Same logic for the logging cases
-          sed -i 's/case TARGET_NR_terminate:/#ifdef TARGET_I386\n    case TARGET_NR_terminate:/' build_qemu-cgc/linux-user/strace.c
-          sed -i 's/case TARGET_NR_random:/    case TARGET_NR_random:\n#endif/' build_qemu-cgc/linux-user/strace.c
-
-          # 5. Fix the 'eip' vs 'rip' issue in signal.c using a safe C-macro replacement
-          sed -i 's/env->eip/( (sizeof(env->eip) == 4) ? env->eip : env->rip )/g' build_qemu-cgc/linux-user/signal.c
+          # Nuke hardcoded blocks
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error.*//g' {} +
+          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/.*_Static_assert.*//g' {} +
           
-          rm -rf qemu_standard
+          # Remove CGC syscalls that only exist in 32-bit headers
+          sed -i '/case TARGET_NR_receive:/,/case TARGET_NR_random:/d' build_64bit/linux-user/syscall.c
+          sed -i '/case TARGET_NR_terminate:/,/case TARGET_NR_random:/d' build_64bit/linux-user/strace.c
 
+          cd build_64bit
+          ./configure --python=python2 --target-list=x86_64-linux-user --static --disable-werror --disable-system
+          make -j$(nproc)
 
-
-
-
-      # 4️⃣ Build QEMU-CGC (Now with x86_64 enabled)
-      - name: Build QEMU-CGC
-        run: |
-          cd build_qemu-cgc
-          ./configure --python=python2 \
-                      --target-list=i386-linux-user,x86_64-linux-user \
-                      --disable-werror \
-                      --disable-guest-agent \
-                      --disable-tools \
-                      --disable-docs \
-                      --disable-system
-          
-          # Build the core and both architecture subdirectories
-          make -j$(nproc) libqemuutil.a libqemustub.a
-          make -j$(nproc) subdir-i386-linux-user
-          make -j$(nproc) subdir-x86_64-linux-user
-
-
-
-
-      - name: Verify QEMU-CGC binaries
-        run: |
-          echo "🔍 Checking binaries:"
-          ls -l build_qemu-cgc/i386-linux-user/qemu-i386 || echo "⚠️ 32-bit binary missing"
-          ls -l build_qemu-cgc/x86_64-linux-user/qemu-x86_64 || echo "⚠️ 64-bit binary missing"
-
-
-
-      # 6️⃣ Upload artifacts (Paths change slightly without static)
-      - name: Upload QEMU-CGC 32-bit binary
+      # --- UPLOAD BOTH ---
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qemu-cgc-i386
-          path: build_qemu-cgc/i386-linux-user/qemu-i386
-
-      - name: Upload QEMU-CGC 64-bit binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: qemu-cgc-x86_64
-          path: build_qemu-cgc/x86_64-linux-user/qemu-x86_64
+          name: qemu-cgc-binaries
+          path: |
+            build_32bit/i386-linux-user/qemu-i386
+            build_64bit/x86_64-linux-user/qemu-x86_64
