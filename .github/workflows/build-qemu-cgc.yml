@@ -42,7 +42,7 @@ jobs:
       - name: Patch x86_64 headers
         run: |
           # Clone standard QEMU repo at the v2.3.0 tag (shallow clone for speed)
-          git clone --depth 1 --branch v2.3.0 https://github.com qemu_standard
+          git clone --depth 1 --branch v2.3.0 https://gitlab.com/qemu-project/qemu.git qemu_standard
           
           # Create the destination folder in case it doesn't exist
           mkdir -p build_qemu-cgc/linux-user/x86_64
