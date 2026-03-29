@@ -1,4 +1,4 @@
-name: Build QEMU-CGC x86_64 
+name: Build QEMU-CGC x86_64
 
 on:
   push:
@@ -7,47 +7,67 @@ on:
 
 jobs:
   build-qemu:
-    runs-on: ubuntu-22.04 
+    runs-on: ubuntu-22.04
+
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Install dependencies
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y \
-            python2 build-essential git ninja-build libglib2.0-dev \
-            libfdt-dev libpixman-1-dev zlib1g-dev tree
-            
-      -  name: Clone and Force Patch
-         run: |
+          sudo apt install -y python2 build-essential git ninja-build \
+            libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev tree
+
+      # 3️⃣ Clone QEMU-CGC and apply patches
+      - name: Clone QEMU-CGC and patch
+        run: |
           git clone https://github.com/mechaphish/qemu-cgc.git build_cgc
           git clone --depth 1 --branch v2.3.0 https://gitlab.com/qemu-project/qemu.git qemu_std
-          
-          # 1. Copy missing x86_64 architecture files
+
+          # Copy missing x86_64 architecture files
           mkdir -p build_cgc/linux-user/x86_64
           cp -r qemu_std/linux-user/x86_64/* build_cgc/linux-user/x86_64/
 
-          # 2. THE CRITICAL FIX: Restore 64-bit registers to the CPU structure
-          # This replaces the 32-bit 'eip' definition with the 64-bit 'rip' union
+          # Patch CPU structure: replace eip with rip for 64-bit
           sed -i 's/target_ulong eip;/#ifdef TARGET_X86_64\n    target_ulong rip;\n#else\n    target_ulong eip;\n#endif/g' build_cgc/target-i386/cpu.h
-          
-          # 3. Fix the 'target_pt_regs' structure for 64-bit
-          # Replaces the 32-bit struct members with 64-bit ones in the headers
           find build_cgc/linux-user/x86_64 -name "*.h" -exec sed -i 's/\beip\b/rip/g' {} +
           find build_cgc/linux-user/x86_64 -name "*.h" -exec sed -i 's/\besp\b/rsp/g' {} +
 
-          # 4. Nuke the 32-bit-only traps
+          # Remove 32-bit-only static asserts / errors
           find build_cgc -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error.*//g' {} +
           find build_cgc -type f -name "*.[ch]" -exec sed -i 's/.*_Static_assert.*//g' {} +
 
-          # 5. Build only the 64-bit target with CGC code
+      # 4️⃣ Configure and build 64-bit CGC target
+      - name: Build QEMU-CGC 64-bit
+        run: |
           cd build_cgc
-          ./configure --python=python2 --target-list=x86_64-linux-user --static --disable-werror --disable-system --disable-tools
+          ./configure --python=python2 \
+                      --target-list=x86_64-linux-user \
+                      --static \
+                      --disable-werror \
+                      --disable-system \
+                      --disable-tools
           make -j$(nproc)
 
-      - name: Upload 64-bit CGC
+      # 5️⃣ Verify the binary exists
+      - name: Verify binary
+        run: |
+          BIN="build_cgc/x86_64-linux-user/qemu-x86_64"
+          if [ -f "$BIN" ]; then
+            echo "✅ Binary found:"
+            file "$BIN"
+          else
+            echo "⚠️ Binary missing!"
+            exit 1
+          fi
+
+      # 6️⃣ Upload the final 64-bit CGC artifact
+      - name: Upload 64-bit CGC binary
         uses: actions/upload-artifact@v4
         with:
           name: qemu-cgc-64bit
           path: build_cgc/x86_64-linux-user/qemu-x86_64
+          if-no-files-found: error
