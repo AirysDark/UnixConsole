@@ -38,6 +38,10 @@ jobs:
           # Fix missing major/minor macros
           sed -i '1i#include <sys/sysmacros.h>' build_cgc/qga/commands-posix.c
 
+          # Remove CGC syscalls for 64-bit pass
+          sed -i '/case TARGET_NR_receive:/,/case TARGET_NR_random:/d' build_64bit/linux-user/syscall.c
+          sed -i '/case TARGET_NR_terminate:/,/case TARGET_NR_random:/d' build_64bit/linux-user/strace.c
+
           # Remove 32-bit-only static asserts / errors
           find build_cgc -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error.*//g' {} +
           find build_cgc -type f -name "*.[ch]" -exec sed -i 's/.*_Static_assert.*//g' {} +
