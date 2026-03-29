@@ -21,7 +21,7 @@ jobs:
           sudo apt install -y python2 build-essential git ninja-build \
             libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev tree
 
-      # 3️⃣ Clone QEMU-CGC and apply patches
+      # 3️⃣ Clone QEMU-CGC and standard QEMU for patches
       - name: Clone QEMU-CGC and patch
         run: |
           git clone https://github.com/mechaphish/qemu-cgc.git build_cgc
@@ -33,8 +33,10 @@ jobs:
 
           # Patch CPU structure: replace eip with rip for 64-bit
           sed -i 's/target_ulong eip;/#ifdef TARGET_X86_64\n    target_ulong rip;\n#else\n    target_ulong eip;\n#endif/g' build_cgc/target-i386/cpu.h
-          find build_cgc/linux-user/x86_64 -name "*.h" -exec sed -i 's/\beip\b/rip/g' {} +
-          find build_cgc/linux-user/x86_64 -name "*.h" -exec sed -i 's/\besp\b/rsp/g' {} +
+          find build_cgc -type f -name "*.[ch]" -exec sed -i 's/env->eip/env->rip/g' {} +
+
+          # Fix missing major/minor macros
+          sed -i '1i#include <sys/sysmacros.h>' build_cgc/qga/commands-posix.c
 
           # Remove 32-bit-only static asserts / errors
           find build_cgc -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error.*//g' {} +
@@ -64,10 +66,14 @@ jobs:
             exit 1
           fi
 
-      # 6️⃣ Upload the final 64-bit CGC artifact
+      # 6️⃣ Upload the 64-bit CGC artifact
       - name: Upload 64-bit CGC binary
         uses: actions/upload-artifact@v4
         with:
           name: qemu-cgc-64bit
           path: build_cgc/x86_64-linux-user/qemu-x86_64
           if-no-files-found: error
+
+      # 7️⃣ Optional: print a short workspace tree for verification
+      - name: Workspace tree (debug)
+        run: tree -L 3 build_cgc/x86_64-linux-user || true
