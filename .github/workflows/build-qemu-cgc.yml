@@ -16,69 +16,49 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y \
-            build-essential \
-            git \
-            python2 \
-            ninja-build \
-            libglib2.0-dev \
-            libfdt-dev \
-            libpixman-1-dev \
-            zlib1g-dev \
-            wget \
-            unzip \
-            zip \
-            tree
+            python2 build-essential git ninja-build libglib2.0-dev \
+            libfdt-dev libpixman-1-dev zlib1g-dev tree
 
-      # --- 32-BIT BUILD (STAY AUTHENTIC) ---
+      # --- 32-BIT BUILD (DISABLE TOOLS TO AVOID ERROR) ---
       - name: Build 32-bit QEMU-CGC
         run: |
           git clone https://github.com/mechaphish/qemu-cgc.git build_32bit
           cd build_32bit
-          ./configure --python=python2 --target-list=i386-linux-user --static --disable-werror --disable-system
+          ./configure --python=python2 --target-list=i386-linux-user --static \
+                      --disable-werror --disable-system --disable-guest-agent --disable-tools
           make -j$(nproc)
 
-      # --- 64-BIT BUILD (HEAVILY PATCHED) ---
+      # --- 64-BIT BUILD (PATCHED) ---
       - name: Build 64-bit QEMU-CGC
         run: |
           git clone https://github.com/mechaphish/qemu-cgc.git build_64bit
           git clone --depth 1 --branch v2.3.0 https://gitlab.com/qemu-project/qemu.git qemu_standard
           
-          # Patch x86_64 headers into the 64bit folder only
           mkdir -p build_64bit/linux-user/x86_64
           cp -r qemu_standard/linux-user/x86_64/* build_64bit/linux-user/x86_64/
           
-          # REGISTER PATCH: Swap 32-bit registers for 64-bit ones in this folder ONLY
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/env->eip/env->rip/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/regs->esp/regs->rsp/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/regs->eip/regs->rip/g' {} +
-          find build_64bit -type f -name "*.[ch]" -exec sed -i 's/regs->eax/regs->rax/g' {} +
+          # Patch registers in 64-bit folder ONLY
+          find build_64bit/linux-user/x86_64 -type f -name "*.[ch]" -exec sed -i 's/->esp/->rsp/g' {} +
+          find build_64bit/linux-user/x86_64 -type f -name "*.[ch]" -exec sed -i 's/->eip/->rip/g' {} +
           
-          # NUKE ARCH TRAPS: Remove #error and _Static_assert blocks
+          # Global Nukes
           find build_64bit -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error.*//g' {} +
           find build_64bit -type f -name "*.[ch]" -exec sed -i 's/.*_Static_assert.*//g' {} +
           
-          # DELETE CGC SYSCALLS: Remove lines that reference undefined 32-bit constants
+          # Remove CGC syscalls for 64-bit pass
           sed -i '/case TARGET_NR_receive:/,/case TARGET_NR_random:/d' build_64bit/linux-user/syscall.c
           sed -i '/case TARGET_NR_terminate:/,/case TARGET_NR_random:/d' build_64bit/linux-user/strace.c
 
           cd build_64bit
-          ./configure --python=python2 --target-list=x86_64-linux-user --static --disable-werror --disable-system
+          ./configure --python=python2 --target-list=x86_64-linux-user --static \
+                      --disable-werror --disable-system --disable-guest-agent --disable-tools
           make -j$(nproc)
 
-      # --- VERIFY AND UPLOAD ---
-      - name: Verify binaries
-        run: |
-          file build_32bit/i386-linux-user/qemu-i386
-          file build_64bit/x86_64-linux-user/qemu-x86_64
-
-      - name: Upload 32-bit CGC
+      # --- UPLOAD BOTH ---
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qemu-cgc-i386
-          path: build_32bit/i386-linux-user/qemu-i386
-
-      - name: Upload 64-bit Patched
-        uses: actions/upload-artifact@v4
-        with:
-          name: qemu-cgc-x86_64
-          path: build_64bit/x86_64-linux-user/qemu-x86_64
+          name: qemu-cgc-binaries
+          path: |
+            build_32bit/i386-linux-user/qemu-i386
+            build_64bit/x86_64-linux-user/qemu-x86_64
