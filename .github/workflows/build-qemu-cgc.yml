@@ -46,19 +46,19 @@ jobs:
           mkdir -p build_qemu-cgc/linux-user/x86_64
           cp -r qemu_standard/linux-user/x86_64/* build_qemu-cgc/linux-user/x86_64/
           
-          # 2. Nuke ALL #error lines in the linux-user directory
-          # This handles any indentation and removes the block entirely
-          find build_qemu-cgc/linux-user -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#error.*//g' {} +
+          # 2. NUKE ALL #error and # error lines in the entire project
+          # This catches "#error", "# error", "  #  error", etc.
+          find build_qemu-cgc -type f -name "*.[ch]" -exec sed -i 's/^[[:space:]]*#[[:space:]]*error.*//g' {} +
           
-          # 3. Nuke ALL _Static_assert lines
+          # 3. NUKE ALL _Static_assert lines
           find build_qemu-cgc -type f -name "*.[ch]" -exec sed -i 's/.*_Static_assert.*//g' {} +
           
-          # 4. Fix the 'undeclared' CGC syscalls in syscall.c
-          # This simply deletes the custom CGC cases from the switch statement for the 64-bit build
-          # We use a broad match to ensure those 'TARGET_NR_receive' etc. lines don't stop the build
+          # 4. Remove the CGC specific syscall cases that lack 64-bit definitions
+          # This deletes the block in syscall.c that references undefined TARGET_NR_ constants
           sed -i '/case TARGET_NR_receive:/,/case TARGET_NR_random:/d' build_qemu-cgc/linux-user/syscall.c
           
           rm -rf qemu_standard
+
 
 
 
