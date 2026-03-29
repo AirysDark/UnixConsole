@@ -10,54 +10,46 @@ jobs:
     runs-on: ubuntu-22.04 
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2️⃣ Install dependencies
-      # We install python2.7 and ninja-build which are often required for older QEMU builds
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y /
-          build-essential /
-          git /
-          python2 /
-          ninja-build /
-          libglib2.0-dev /
-          libfdt-dev /
-          libpixman-1-dev /
-          zlib1g-dev /
-          wget /
-          unzip /
-          zip /
-          tree 
+          sudo apt install -y \
+            build-essential \
+            git \
+            python2 \
+            python2-minimal \
+            ninja-build \
+            libglib2.0-dev \
+            libfdt-dev \
+            libpixman-1-dev \
+            zlib1g-dev \
+            wget \
+            unzip \
+            zip \
+            tree
 
-      # 3️⃣ Clone QEMU-CGC
       - name: Clone QEMU-CGC
         run: |
           git clone https://github.com/mechaphish/qemu-cgc.git build_qemu-cgc
 
-      # 4️⃣ Build QEMU-CGC
       - name: Build QEMU-CGC
         run: |
           cd build_qemu-cgc
-          # Explicitly point to python2 and set targets
+          # Use python2 specifically for these old scripts
           ./configure --python=python2 --target-list=i386-linux-user,x86_64-linux-user --static
           make -j$(nproc)
 
-      # 5️⃣ Verify built binaries
       - name: Verify QEMU-CGC binaries
         run: |
           echo "🔍 Checking binaries:"
           ls -l build_qemu-cgc/i386-linux-user/qemu-i386 || echo "⚠️ 32-bit binary missing"
           ls -l build_qemu-cgc/x86_64-linux-user/qemu-x86_64 || echo "⚠️ 64-bit binary missing"
-          # Run a quick version check to ensure they execute
-          build_qemu-cgc/i386-linux-user/qemu-i386 -version
 
-      # 6️⃣ Upload artifacts
       - name: Upload QEMU-CGC 32-bit binary
         uses: actions/upload-artifact@v4
         with:
@@ -71,7 +63,3 @@ jobs:
           name: qemu-cgc-x86_64
           path: build_qemu-cgc/x86_64-linux-user/qemu-x86_64
           if-no-files-found: error
-
-      # 7️⃣ Workspace tree (debug)
-      - name: Workspace tree (debug)
-        run: tree -L 3 build_qemu-cgc || true
