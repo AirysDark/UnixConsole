@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -37,12 +37,14 @@ jobs:
         run: |
           git clone https://github.com/mechaphish/qemu-cgc.git build_qemu-cgc
 
+      
       - name: Build QEMU-CGC
         run: |
           cd build_qemu-cgc
-          # Use python2 specifically for these old scripts
-          ./configure --python=python2 --target-list=i386-linux-user,x86_64-linux-user --static
+          # --disable-werror is REQUIRED to bypass deprecated GLib function errors
+          ./configure --python=python2 --target-list=i386-linux-user,x86_64-linux-user --static --disable-werror
           make -j$(nproc)
+
 
       - name: Verify QEMU-CGC binaries
         run: |
