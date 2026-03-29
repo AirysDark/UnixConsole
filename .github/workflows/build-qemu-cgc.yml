@@ -38,16 +38,20 @@ jobs:
           git clone https://github.com/mechaphish/qemu-cgc.git build_qemu-cgc
 
       
+      # 4️⃣ Build QEMU-CGC
       - name: Build QEMU-CGC
         run: |
           cd build_qemu-cgc
-          # --disable-guest-agent and --disable-tools bypasses the 'major/minor' errors
           ./configure --python=python2 \
                       --target-list=i386-linux-user,x86_64-linux-user \
                       --disable-werror \
                       --disable-guest-agent \
-                      --disable-tools
-          make -j$(nproc)
+                      --disable-tools \
+                      --disable-docs \
+                      --disable-system
+          # ONLY build the specific user-mode targets
+          make -j$(nproc) i386-linux-user/all x86_64-linux-user/all
+
 
 
       - name: Verify QEMU-CGC binaries
