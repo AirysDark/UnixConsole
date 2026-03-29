@@ -23,8 +23,18 @@ jobs:
         run: |
           git clone https://github.com/mechaphish/qemu-cgc.git build_32bit
           cd build_32bit
-          ./configure --python=python2 --target-list=i386-linux-user --static --disable-werror --disable-system
-          make -j$(nproc)
+          ./configure --python=python2 \
+                      --target-list=i386-linux-user \
+                      --disable-werror \
+                      --disable-guest-agent \
+                      --disable-tools \
+                      --disable-docs \
+                      --disable-system
+          
+          # Build the core and both architecture subdirectories
+          make -j$(nproc) libqemuutil.a libqemustub.a
+          make -j$(nproc) subdir-i386-linux-user
+          
 
       # --- 64-BIT BUILD (PATCHED) ---
       - name: Setup 64-bit Folder
@@ -50,8 +60,17 @@ jobs:
           sed -i '/case TARGET_NR_terminate:/,/case TARGET_NR_random:/d' build_64bit/linux-user/strace.c
 
           cd build_64bit
-          ./configure --python=python2 --target-list=x86_64-linux-user --static --disable-werror --disable-system
-          make -j$(nproc)
+          ./configure --python=python2 \
+                      --target-list=x86_64-linux-user \
+                      --disable-werror \
+                      --disable-guest-agent \
+                      --disable-tools \
+                      --disable-docs \
+                      --disable-system
+          
+          # Build the core and both architecture subdirectories
+          make -j$(nproc) libqemuutil.a libqemustub.a
+          make -j$(nproc) subdir-x86_64-linux-user
 
       # --- UPLOAD BOTH ---
       - name: Upload Artifacts
