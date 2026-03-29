@@ -33,12 +33,25 @@ jobs:
             zip \
             tree
 
+      # 3️⃣ Clone QEMU-CGC
       - name: Clone QEMU-CGC
         run: |
-          git clone https://github.com/mechaphish/qemu-cgc.git build_qemu-cgc
+          git clone https://github.com build_qemu-cgc
 
-      
-      # 4️⃣ Build QEMU-CGC
+      # 3.5️⃣ Patch 64-bit support from standard QEMU 2.3.0
+      - name: Patch x86_64 headers
+        run: |
+          # Download standard QEMU 2.3.0 source
+          wget https://download.qemu.org
+          tar -xjf qemu-2.3.0.tar.bz2
+          
+          # Copy the missing x86_64 directory into qemu-cgc
+          cp -r qemu-2.3.0/linux-user/x86_64 build_qemu-cgc/linux-user/
+          
+          # Clean up the downloaded files to save space
+          rm -rf qemu-2.3.0 qemu-2.3.0.tar.bz2
+
+      # 4️⃣ Build QEMU-CGC (Now with x86_64 enabled)
       - name: Build QEMU-CGC
         run: |
           cd build_qemu-cgc
@@ -49,15 +62,12 @@ jobs:
                       --disable-tools \
                       --disable-docs \
                       --disable-system
-
-          # 1. Build the supporting libraries first
+          
+          # Build the core and both architecture subdirectories
           make -j$(nproc) libqemuutil.a libqemustub.a
-
-          # 2. Build the 32-bit CGC binary specifically
           make -j$(nproc) subdir-i386-linux-user
-
-          # 3. Build the 64-bit binary specifically
           make -j$(nproc) subdir-x86_64-linux-user
+
 
 
 
