@@ -31,6 +31,9 @@ jobs:
           mkdir -p build_cgc/linux-user/x86_64
           cp -r qemu_std/linux-user/x86_64/* build_cgc/linux-user/x86_64/
 
+          # Ensure TASK_UNMAPPED_BASE is defined for x86_64
+          sed -i '/#define MMAP_LAYOUT_H/a #define TASK_UNMAPPED_BASE (1ULL << 44)' build_cgc/linux-user/mmap.c || true
+
           # Patch CPU structure: replace eip with rip for 64-bit
           sed -i 's/target_ulong eip;/#ifdef TARGET_X86_64\n    target_ulong rip;\n#else\n    target_ulong eip;\n#endif/g' build_cgc/target-i386/cpu.h
           find build_cgc -type f -name "*.[ch]" -exec sed -i 's/env->eip/env->rip/g' {} +
@@ -51,6 +54,9 @@ jobs:
           find build_cgc -type f -name "*.[ch]" -exec sed -i 's/env->eip/env->rip/g' {} +
 
           # FIX MISSING MACRO: TASK_UNMAPPED_BASE for x86_64
+          sed -i '/#define MMAP_LAYOUT_H/a #define TASK_UNMAPPED_BASE (1ULL << 44)' build_cgc/linux-user/mmap.c || true
+
+          # Ensure TASK_UNMAPPED_BASE is defined for x86_64
           sed -i '/#define MMAP_LAYOUT_H/a #define TASK_UNMAPPED_BASE (1ULL << 44)' build_cgc/linux-user/mmap.c || true
           
           # Remove CGC syscalls for 64-bit pass
