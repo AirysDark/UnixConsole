@@ -23,6 +23,14 @@ jobs:
       - name: Download cgc2elf.tar.gz
         run: curl -L -O https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/cgc2elf.tar.gz
 
+      - name: Extract cgc2elf.tar.gz
+        run: |
+         mkdir -p cgc2elf-temp
+         tar -xzf cgc2elf.tar.gz -C cgc2elf-temp
+         # Rename/move to guaranteed folder name
+         mv cgc2elf-temp/* cgc2elf
+         rm -rf cgc2elf-temp
+
         
       # 4️⃣ Build (NO man page)
       - name: Build cgc2elf binary only
