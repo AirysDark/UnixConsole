@@ -31,8 +31,8 @@ jobs:
             tree \
             ninja-build \
             cmake
-            
-
+          
+          pip3 install --upgrade pip
           pip3 install \
             xlsxwriter \
             pycryptodome \
@@ -40,7 +40,7 @@ jobs:
             pyyaml \
             matplotlib
 
-       # 3️⃣ Download libcgc parts and combine
+      # 3️⃣ Download libcgc parts and combine
       - name: Download and reconstruct libcgc
         run: |
           for part in aa ab ac ad ae af ag; do
@@ -58,25 +58,26 @@ jobs:
       - name: Build libcgc
         run: |
           cd libcgc
+          # Fix standard library symlink if needed
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so
+          
+          # Clean previous builds
           rm -rf build64/
           mkdir build64 && cd build64
           
-          # Configure for 64-bit
+          # Configure CMake for 64-bit build
           BUILD64=1 cmake .. -GNinja
           
-          # Use the target names verified by Ninja
+          # Build target binaries
           ninja cgc pov
 
       # 5️⃣ Verify Build Artifacts
       - name: Verify Architecture
         run: |
           echo "🔍 Checking library architecture..."
-          # Check the static library
           file libcgc/build64/lib/libcgc.a || echo "⚠️ Library not found"
           
           echo "🔍 Checking a sample Challenge Binary..."
-          # Find the first binary in the bin folder and check it
           SAMPLE_BIN=$(find libcgc/build64/bin -type f | head -n 1)
           if [ -f "$SAMPLE_BIN" ]; then
             file "$SAMPLE_BIN"
