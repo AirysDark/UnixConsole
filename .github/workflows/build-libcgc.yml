@@ -40,16 +40,24 @@ jobs:
             pyyaml \
             matplotlib
 
-      # 3️⃣ Clone and Setup cb-multios
-      - name: Clone cb-multios
+       # 3️⃣ Download libcgc parts and combine
+      - name: Download and reconstruct libcgc
         run: |
-          git clone https://github.com/trailofbits/cb-multios.git
-          cd cb-multios
+          for part in aa ab ac ad ae af ag; do
+            curl -L -o "libcgc.part.$part" "https://github.com/AirysDark/Custom-CGPT/raw/main/libcgc/libcgc.part.$part"
+          done
+          cat libcgc.part.* > libcgc.tar.xz
+          echo "✅ libcgc.tar.xz reconstructed successfully"
+
+          # Extract to libcgc folder
+          mkdir -p libcgc
+          tar -xJf libcgc.tar.xz -C libcgc
+          echo "📂 libcgc.tar.xz extracted to ./libcgc/"
 
       # 4️⃣ Build libcgc (Force 64-bit)
       - name: Build libcgc
         run: |
-          cd cb-multios
+          cd libcgc
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so
           rm -rf build64/
           mkdir build64 && cd build64
@@ -65,11 +73,11 @@ jobs:
         run: |
           echo "🔍 Checking library architecture..."
           # Check the static library
-          file cb-multios/build64/lib/libcgc.a || echo "⚠️ Library not found"
+          file libcgc/build64/lib/libcgc.a || echo "⚠️ Library not found"
           
           echo "🔍 Checking a sample Challenge Binary..."
           # Find the first binary in the bin folder and check it
-          SAMPLE_BIN=$(find cb-multios/build64/bin -type f | head -n 1)
+          SAMPLE_BIN=$(find libcgc/build64/bin -type f | head -n 1)
           if [ -f "$SAMPLE_BIN" ]; then
             file "$SAMPLE_BIN"
           else
@@ -82,9 +90,9 @@ jobs:
         with:
           name: libcgc-x86_64
           path: |
-            cb-multios/build64/lib/
-            cb-multios/build64/bin/
-            cb-multios/include/
+            libcgc/build64/lib/
+            libcgc/build64/bin/
+            libcgc/include/
           if-no-files-found: error
           retention-days: 5
 
@@ -92,4 +100,4 @@ jobs:
       - name: Workspace Summary
         run: |
           echo "✅ Build Complete. Directory Structure:"
-          tree -L 3 cb-multios/build64
+          tree -L 3 libcgc/build64
