@@ -20,11 +20,10 @@ jobs:
           sudo apt update
           sudo apt install -y build-essential git gcc
 
-      # 3️⃣ Clone source
-      - name: Clone cgc2elf
-        run: |
-          git clone https://github.com/CyberGrandChallenge/cgc2elf.git
+      - name: Download cgc2elf.tar.gz
+        run: curl -L -O https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/cgc2elf.tar.gz
 
+        
       # 4️⃣ Build (NO man page)
       - name: Build cgc2elf binary only
         run: |
