@@ -22,14 +22,16 @@ jobs:
             libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev tree curl tar
 
       # 3️⃣ Download pre-patched QEMU-CGC archive
-      - name: Download qemu-cgc.tar.gz
-        run: curl -L -o qemu-cgc.tar.gz https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/qemu-cgc.tar.gz
+      - name: Download qemu-cgc.tar.xz
+        run: |
+          curl -L -o qemu-cgc.tar.xz https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/qemu-cgc.tar.xz
 
-      # 4️⃣ Extract archive directly into qemu-cgc folder
-      - name: Extract qemu-cgc.tar.gz
+      # 4️⃣ Extract archive directly into guaranteed folder
+      - name: Extract qemu-cgc.tar.xz
         run: |
           mkdir -p qemu-cgc
-          tar -xzf qemu-cgc.tar.gz -C qemu-cgc --strip-components=0
+          # Extract contents directly into qemu-cgc
+          tar -xJf qemu-cgc.tar.xz -C qemu-cgc --strip-components=0
 
       # 5️⃣ Configure and build 64-bit CGC target
       - name: Build QEMU-CGC 64-bit
