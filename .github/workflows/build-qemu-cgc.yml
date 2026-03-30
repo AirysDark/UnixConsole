@@ -19,23 +19,23 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y python2 build-essential git ninja-build \
-            libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev tree
+            libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev tree curl tar
 
+      # 3️⃣ Download pre-patched QEMU-CGC archive
       - name: Download qemu-cgc.tar.gz
         run: |
-          curl -L -O https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/qemu-cgc.tar.gz
+          curl -L -o qemu-cgc.tar.gz https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/qemu-cgc.tar.gz
 
-      - name: Extract qemu-cgc.tar.gz into guaranteed folder
+      # 4️⃣ Extract archive into guaranteed folder
+      - name: Extract qemu-cgc.tar.gz
         run: |
           mkdir -p qemu-cgc-temp
           tar -xzf qemu-cgc.tar.gz -C qemu-cgc-temp
-          # Move contents to final folder with guaranteed name
           mkdir -p qemu-cgc
           mv qemu-cgc-temp/* qemu-cgc
           rm -rf qemu-cgc-temp
 
-    
-      # 4️⃣ Configure and build 64-bit CGC target
+      # 5️⃣ Configure and build 64-bit CGC target
       - name: Build QEMU-CGC 64-bit
         run: |
           cd qemu-cgc
@@ -47,7 +47,7 @@ jobs:
                       --disable-tools
           make -j$(nproc)
 
-      # 5️⃣ Verify the binary exists
+      # 6️⃣ Verify the binary exists
       - name: Verify binary
         run: |
           BIN="qemu-cgc/x86_64-linux-user/qemu-x86_64"
@@ -59,7 +59,7 @@ jobs:
             exit 1
           fi
 
-      # 6️⃣ Upload the 64-bit CGC artifact
+      # 7️⃣ Upload the 64-bit CGC artifact
       - name: Upload 64-bit CGC binary
         uses: actions/upload-artifact@v4
         with:
@@ -67,6 +67,6 @@ jobs:
           path: qemu-cgc/x86_64-linux-user/qemu-x86_64
           if-no-files-found: error
 
-      # 7️⃣ Optional: print a short workspace tree for verification
+      # 8️⃣ Optional: print a short workspace tree for verification
       - name: Workspace tree (debug)
         run: tree -L 3 qemu-cgc/x86_64-linux-user || true
