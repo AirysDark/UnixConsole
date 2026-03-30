@@ -74,15 +74,25 @@ jobs:
       # 5️⃣ Verify Build Artifacts
       - name: Verify Architecture
         run: |
-          echo "🔍 Checking library architecture..."
-          file libcgc/build64/lib/libcgc.a || echo "⚠️ Library not found"
-          
-          echo "🔍 Checking a sample Challenge Binary..."
-          SAMPLE_BIN=$(find libcgc/build64/bin -type f | head -n 1)
+          echo "🔍 Checking shared libraries..."
+          if [ -f libcgc/build64/include/libcgc.so ]; then
+            file libcgc/build64/include/libcgc.so
+          else
+            echo "⚠️ libcgc.so not found"
+          fi
+
+          if [ -f libcgc/build64/include/libpov/libpov.so ]; then
+            file libcgc/build64/include/libpov/libpov.so
+          else
+            echo "⚠️ libpov.so not found"
+          fi
+
+          echo "🔍 Checking a sample challenge binary..."
+          SAMPLE_BIN=$(find libcgc/build64/challenges -type f | head -n 1)
           if [ -f "$SAMPLE_BIN" ]; then
             file "$SAMPLE_BIN"
           else
-            echo "⚠️ No binaries found in build64/bin"
+            echo "⚠️ No binaries found in build64/challenges"
           fi
 
       # 6️⃣ Upload Artifacts for cgctk
