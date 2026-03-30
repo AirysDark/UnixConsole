@@ -20,16 +20,14 @@ jobs:
           sudo apt update
           sudo apt install -y build-essential git gcc
 
-      - name: Download cgc2elf.tar.gz
-        run: curl -L -O https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/cgc2elf.tar.gz
+      - name: Download cgc2elf.tar.xz
+        run: curl -L -O https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/cgc2elf.tar.xz
 
-      - name: Extract cgc2elf.tar.gz
+      - name: Extract cgc2elf.tar.xz into cgc2elf folder
         run: |
-         mkdir -p cgc2elf-temp
-         tar -xzf cgc2elf.tar.gz -C cgc2elf-temp
-         # Rename/move to guaranteed folder name
-         mv cgc2elf-temp/* cgc2elf
-         rm -rf cgc2elf-temp
+          mkdir -p cgc2elf
+          # Extract directly into cgc2elf
+          tar -xJf cgc2elf.tar.xz -C cgc2elf --strip-components=0
 
         
       # 4️⃣ Build (NO man page)
