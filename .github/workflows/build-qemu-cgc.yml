@@ -43,7 +43,7 @@ jobs:
                       --disable-werror \
                       --disable-system \
                       --disable-tools
-          make -j$(nproc)
+          make -j2
 
       # 6️⃣ Verify the binary exists
       - name: Verify binary
