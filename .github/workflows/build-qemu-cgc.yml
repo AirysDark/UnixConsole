@@ -23,17 +23,13 @@ jobs:
 
       # 3️⃣ Download pre-patched QEMU-CGC archive
       - name: Download qemu-cgc.tar.gz
-        run: |
-          curl -L -o qemu-cgc.tar.gz https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/qemu-cgc.tar.gz
+        run: curl -L -o qemu-cgc.tar.gz https://raw.githubusercontent.com/AirysDark/Custom-CGPT/main/qemu-cgc.tar.gz
 
-      # 4️⃣ Extract archive into guaranteed folder
+      # 4️⃣ Extract archive directly into qemu-cgc folder
       - name: Extract qemu-cgc.tar.gz
         run: |
-          mkdir -p qemu-cgc-temp
-          tar -xzf qemu-cgc.tar.gz -C qemu-cgc-temp
           mkdir -p qemu-cgc
-          mv qemu-cgc-temp/* qemu-cgc
-          rm -rf qemu-cgc-temp
+          tar -xzf qemu-cgc.tar.gz -C qemu-cgc --strip-components=0
 
       # 5️⃣ Configure and build 64-bit CGC target
       - name: Build QEMU-CGC 64-bit
