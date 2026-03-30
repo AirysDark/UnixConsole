@@ -1,4 +1,4 @@
-name: Build cgc2elf
+name: Build cgc2elf x86_64 
 
 on:
   push:
